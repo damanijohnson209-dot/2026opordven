@@ -1,0 +1,1837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Venezuela Absolute Resolve - Operational Weather</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet" />
+
+<style>
+/* Ops-console styling (cleaned: valid CSS variables, no smart quotes) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root{
+  --bg-void:#050709; --bg-base:#080c10; --bg-surface:#0c1219; --bg-raised:#101820; --bg-card:#121a24; --bg-hover:#172030;
+  --border-dim:#1a2535; --border-mid:#243548; --border-bright:#2e4560; --border-glow:rgba(0,210,255,0.3);
+  --accent:#00d2ff; --accent-dim:#0099bb; --accent-glow:rgba(0,210,255,0.12);
+  --amber:#ffb800; --amber-dim:rgba(255,184,0,0.15);
+  --red:#ff3355; --red-dim:rgba(255,51,85,0.15);
+  --green:#00ff9d; --green-dim:rgba(0,255,157,0.12);
+  --text-primary:#d0e4f0; --text-secondary:#7a9ab5; --text-dim:#3a5570; --text-muted:#253545;
+  --header-h:58px; --loctab-h:46px; --navh:42px;
+  --font-ui:"Exo 2",sans-serif; --font-mono:"JetBrains Mono",monospace; --font-display:"Bebas Neue",sans-serif;
+  --radius:4px; --shadow-card:0 4px 24px rgba(0,0,0,0.6);
+}
+
+html,body{height:100%;background:var(--bg-void);color:var(--text-primary);font-family:var(--font-ui);overflow:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg-base)}
+::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--accent-dim)}
+
+.hidden{display:none !important}
+.fade-in{animation:fadeIn .22s ease both}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%}
+.status-dot.active{background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 2.5s ease infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+
+.login-overlay{
+  position:fixed;inset:0;background:var(--bg-void);
+  display:flex;align-items:center;justify-content:center;z-index:9999;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% 50%, rgba(0,210,255,0.04) 0%, transparent 70%),
+    repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,210,255,0.03) 40px),
+    repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,210,255,0.03) 40px);
+}
+.login-box{
+  background:var(--bg-surface);border:1px solid var(--border-mid);border-radius:8px;padding:40px 48px;
+  width:420px;text-align:center;
+  box-shadow:0 0 80px rgba(0,0,0,0.9),0 0 40px rgba(0,210,255,0.05);
+  position:relative;
+}
+.login-box::before{
+  content:"";position:absolute;top:0;left:30%;right:30%;
+  height:1px;background:linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+.login-emblem{width:72px;height:72px;margin:0 auto 24px;position:relative;display:flex;align-items:center;justify-content:center}
+.emblem-ring{position:absolute;inset:0;border:1px solid var(--accent-dim);border-radius:50%;animation:spin 8s linear infinite;border-top-color:var(--accent);border-right-color:transparent}
+@keyframes spin{to{transform:rotate(360deg)}}
+.emblem-icon{font-size:32px;color:var(--accent);text-shadow:0 0 20px var(--accent)}
+.login-title{font-family:var(--font-display);font-size:22px;letter-spacing:3px;color:var(--accent);margin-bottom:4px}
+.login-subtitle{font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);letter-spacing:2px;margin-bottom:4px}
+.login-classification{font-family:var(--font-mono);font-size:9px;color:var(--amber);letter-spacing:2px;margin-bottom:28px}
+.login-fields{display:flex;flex-direction:column;gap:14px;text-align:left}
+.field-group{display:flex;flex-direction:column;gap:5px}
+.field-label{font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:2px}
+.login-input{
+  background:var(--bg-raised);border:1px solid var(--border-mid);
+  border-radius:var(--radius);color:var(--text-primary);
+  font-family:var(--font-mono);font-size:13px;padding:10px 12px;outline:none;
+  transition:border .2s, box-shadow .2s;
+}
+.login-input:focus{border-color:var(--accent-dim);box-shadow:0 0 0 2px var(--accent-glow)}
+.login-hint{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);text-align:center}
+.login-btn{
+  background:var(--accent-glow);border:1px solid var(--accent-dim);
+  color:var(--accent);font-family:var(--font-display);font-size:16px;letter-spacing:3px;
+  padding:12px;border-radius:var(--radius);cursor:pointer;display:flex;
+  align-items:center;justify-content:center;gap:10px;margin-top:4px;width:100%;
+  transition:all .2s;
+}
+.login-btn:hover{background:rgba(0,210,255,0.18);border-color:var(--accent);box-shadow:0 0 20px rgba(0,210,255,0.15)}
+.login-error{font-family:var(--font-mono);font-size:10px;color:var(--red);text-align:center;padding:6px;border:1px solid var(--red-dim);border-radius:var(--radius);background:var(--red-dim);letter-spacing:1px}
+.login-footer{margin-top:24px;font-family:var(--font-mono);font-size:10px;color:var(--text-dim);display:flex;align-items:center;justify-content:center;gap:6px}
+
+.app{display:flex;flex-direction:column;height:100vh}
+.header{
+  height:var(--header-h);background:var(--bg-surface);
+  border-bottom:1px solid var(--border-dim);
+  display:flex;align-items:center;padding:0 16px;gap:16px;
+  flex-shrink:0;position:relative;z-index:200;
+}
+.header::after{
+  content:"";position:absolute;bottom:-1px;left:0;right:0;height:1px;
+  background:linear-gradient(90deg, transparent 0%, var(--accent-dim) 30%, var(--accent-dim) 70%, transparent 100%);
+  opacity:.4;
+}
+.header-left{display:flex;align-items:center;gap:12px;min-width:280px}
+.header-logo{width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+.logo-hex{font-size:28px;color:var(--accent);text-shadow:0 0 15px var(--accent)}
+.brand-mission{font-family:var(--font-display);font-size:17px;letter-spacing:2px;color:var(--accent);line-height:1}
+.brand-sub{font-family:var(--font-mono);font-size:8px;color:var(--text-secondary);letter-spacing:1.5px;margin-top:3px}
+
+.header-center{flex:1;display:flex;justify-content:center}
+.search-wrap{position:relative;width:100%;max-width:440px}
+.search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:15px;pointer-events:none}
+.search-input{
+  width:100%;background:var(--bg-raised);border:1px solid var(--border-dim);
+  border-radius:var(--radius);color:var(--text-primary);
+  font-family:var(--font-mono);font-size:11px;padding:8px 32px 8px 34px;outline:none;
+}
+.search-input:focus{border-color:var(--border-bright)}
+.search-input::placeholder{color:var(--text-muted)}
+.search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);cursor:pointer;font-size:11px;display:none}
+.search-clear.visible{display:block}
+
+.header-right{display:flex;align-items:center;gap:16px;min-width:220px;justify-content:flex-end}
+.header-clock{text-align:right}
+.clock-utc{font-family:var(--font-mono);font-size:15px;color:var(--accent);letter-spacing:1px}
+.clock-date{font-family:var(--font-mono);font-size:9px;color:var(--text-secondary);letter-spacing:1px}
+.header-status{display:flex;align-items:center;gap:6px}
+.status-label{font-family:var(--font-mono);font-size:9px;color:var(--text-secondary);letter-spacing:1px}
+.logout-btn{background:none;border:1px solid var(--border-mid);border-radius:var(--radius);color:var(--text-dim);font-size:14px;width:30px;height:30px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.logout-btn:hover{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+
+.loc-tabs{
+  height:var(--loctab-h);background:var(--bg-base);
+  border-bottom:1px solid var(--border-dim);
+  display:flex;align-items:center;padding:0 16px;justify-content:space-between;flex-shrink:0
+}
+.loc-tab-track{display:flex;gap:4px;align-items:center}
+.loc-tab{
+  display:flex;flex-direction:column;align-items:flex-start;
+  padding:6px 20px;border:1px solid transparent;border-bottom:none;border-radius:4px 4px 0 0;
+  background:transparent;color:var(--text-secondary);cursor:pointer;transition:all .2s;gap:1px;position:relative;top:1px
+}
+.loc-tab:hover{background:var(--bg-raised);color:var(--text-primary)}
+.loc-tab.active{background:var(--bg-surface);border-color:var(--border-mid);border-bottom-color:var(--bg-surface);color:var(--accent)}
+.loc-tab.active::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);border-radius:4px 4px 0 0}
+.loc-icao{font-family:var(--font-display);font-size:18px;letter-spacing:2px;line-height:1}
+.loc-name{font-family:var(--font-mono);font-size:8px;letter-spacing:1px;color:var(--text-dim)}
+.loc-tab-add{background:none;border:1px dashed var(--border-mid);border-radius:var(--radius);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:4px 10px;cursor:pointer;margin-left:8px;transition:all .2s;letter-spacing:1px}
+.loc-tab-add:hover{border-color:var(--accent-dim);color:var(--accent)}
+.loc-cycle{display:flex;align-items:center;gap:8px}
+.cycle-label{font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:1px}
+.cycle-select{background:var(--bg-raised);border:1px solid var(--border-mid);color:var(--accent);font-family:var(--font-mono);font-size:12px;padding:5px 10px;border-radius:var(--radius);outline:none;cursor:pointer}
+
+.section-nav{
+  height:var(--navh);background:var(--bg-surface);
+  border-bottom:1px solid var(--border-dim);
+  flex-shrink:0;overflow-x:auto;overflow-y:hidden
+}
+.section-nav::-webkit-scrollbar{height:2px}
+.nav-items{display:flex;height:100%;padding:0 16px;gap:2px}
+.nav-item{
+  display:flex;align-items:center;gap:7px;padding:0 18px;background:transparent;border:none;border-bottom:2px solid transparent;
+  color:var(--text-secondary);font-size:12px;font-weight:600;letter-spacing:1px;cursor:pointer;transition:all .18s;white-space:nowrap
+}
+.nav-item .nav-icon{font-size:10px}
+.nav-item:hover{color:var(--text-primary);border-bottom-color:var(--border-bright)}
+.nav-item.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(0,210,255,0.04)}
+
+.content{flex:1;overflow-y:auto;padding:20px;background:var(--bg-base)}
+.page-header{margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border-dim)}
+.page-header-inner{display:flex;align-items:flex-end;justify-content:space-between}
+.page-title{font-family:var(--font-display);font-size:24px;letter-spacing:3px;color:var(--accent)}
+.page-subtitle{font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);letter-spacing:1px;margin-top:4px}
+.page-meta{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
+.meta-chip{font-family:var(--font-mono);font-size:9px;letter-spacing:1px;padding:3px 9px;border-radius:2px;border:1px solid var(--border-dim);color:var(--text-dim)}
+.meta-chip.active{border-color:var(--accent-dim);color:var(--accent);background:var(--accent-glow)}
+
+.collapsible{margin-bottom:14px;border:1px solid var(--border-dim);border-radius:6px;overflow:hidden}
+.collapsible-header{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;background:var(--bg-card);cursor:pointer;transition:background .18s;user-select:none}
+.collapsible-header:hover{background:var(--bg-hover)}
+.collapsible-left{display:flex;align-items:center;gap:10px}
+.collapsible-num{font-family:var(--font-mono);font-size:10px;color:var(--text-dim);min-width:30px}
+.collapsible-title{font-size:13px;font-weight:600;letter-spacing:.5px;color:var(--text-primary)}
+.collapsible-badge{font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:2px;border:1px solid var(--border-mid);color:var(--text-dim);letter-spacing:1px}
+.collapsible-right{display:flex;align-items:center;gap:10px}
+.chevron{font-size:10px;color:var(--text-dim);transition:transform .2s}
+.chevron.open{transform:rotate(90deg)}
+.collapsible-body{padding:16px;background:var(--bg-raised);border-top:1px solid var(--border-dim)}
+.collapsed .collapsible-body{display:none}
+
+.card{background:var(--bg-card);border:1px solid var(--border-dim);border-radius:6px;overflow:hidden;transition:border-color .2s;box-shadow:var(--shadow-card)}
+.card:hover{border-color:var(--border-mid)}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid var(--border-dim);background:rgba(0,0,0,0.25)}
+.card-title{font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--text-secondary);text-transform:uppercase}
+.card-actions{display:flex;gap:5px}
+.card-btn{background:none;border:1px solid var(--border-dim);border-radius:3px;color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:3px 8px;cursor:pointer;transition:all .15s}
+.card-btn:hover{border-color:var(--accent-dim);color:var(--accent)}
+.card-btn.danger:hover{border-color:var(--red);color:var(--red)}
+.card-body{padding:14px}
+
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.grid-2{grid-template-columns:1fr}.header-left,.header-right{min-width:auto}}
+@media(max-width:600px){.header{padding:0 10px;gap:8px}.brand-mission{font-size:14px}.content{padding:12px}}
+
+.upload-zone{
+  border:1px dashed var(--border-bright);border-radius:5px;min-height:150px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  cursor:pointer;transition:all .2s;position:relative;background:rgba(0,0,0,0.2);overflow:hidden
+}
+.upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent-dim);background:var(--accent-glow)}
+.upload-zone.has-content{border-style:solid;border-color:var(--border-mid);min-height:auto}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-icon{font-size:26px;color:var(--text-muted)}
+.upload-text{font-family:var(--font-mono);font-size:10px;color:var(--text-dim);text-align:center;letter-spacing:1px;line-height:1.6}
+.upload-text strong{color:var(--text-secondary)}
+.upload-preview,.upload-gif{max-width:100%;max-height:380px;object-fit:contain;display:block;border-radius:3px}
+.upload-controls{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+
+.analysis-label{font-family:var(--font-mono);font-size:9px;letter-spacing:1.5px;color:var(--text-dim);margin-top:12px;margin-bottom:5px;display:block;text-transform:uppercase}
+.analysis-field{
+  width:100%;background:rgba(0,0,0,0.35);border:1px solid var(--border-dim);border-radius:3px;
+  color:var(--text-primary);font-family:var(--font-mono);font-size:11px;padding:9px;resize:vertical;min-height:80px;outline:none;line-height:1.65
+}
+.analysis-field:focus{border-color:var(--accent-dim)}
+.analysis-field::placeholder{color:var(--text-muted)}
+
+.discussion-wrap{margin-top:10px}
+.discussion-toggle{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:10px;color:var(--text-dim);cursor:pointer;letter-spacing:1px;padding:4px 0}
+.discussion-toggle:hover{color:var(--text-secondary)}
+.discussion-field{
+  width:100%;background:rgba(0,0,0,0.4);border:1px solid var(--border-dim);border-radius:3px;
+  color:var(--text-secondary);font-family:var(--font-mono);font-size:11px;padding:8px;resize:vertical;min-height:60px;outline:none;line-height:1.6
+}
+
+.level-tabs{display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap}
+.level-tab{background:var(--bg-card);border:1px solid var(--border-dim);border-radius:3px;color:var(--text-secondary);font-family:var(--font-mono);font-size:11px;padding:5px 14px;cursor:pointer;letter-spacing:1px}
+.level-tab:hover{border-color:var(--border-bright);color:var(--text-primary)}
+.level-tab.active{background:var(--accent-glow);border-color:var(--accent-dim);color:var(--accent)}
+
+.model-product-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px}
+.model-product-tab{background:var(--bg-card);border:1px solid var(--border-dim);border-radius:3px;color:var(--text-secondary);font-family:var(--font-mono);font-size:10px;padding:4px 10px;cursor:pointer;letter-spacing:1px}
+.model-product-tab.active{background:rgba(255,184,0,0.1);border-color:var(--amber-dim);color:var(--amber)}
+
+.stoplight-table{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:11px}
+.stoplight-table th{padding:9px 12px;text-align:left;background:rgba(0,0,0,0.4);border:1px solid var(--border-dim);color:var(--text-secondary);font-size:10px;letter-spacing:1px;font-weight:500}
+.stoplight-table td{padding:8px 12px;border:1px solid var(--border-dim);color:var(--text-primary);vertical-align:middle}
+.stoplight-table select,.stoplight-table input{background:transparent;border:none;outline:none;color:inherit;font-family:var(--font-mono);font-size:11px;width:100%}
+.g{color:var(--green)} .a{color:var(--amber)} .r{color:var(--red)}
+
+.timeline{display:flex;gap:0;overflow-x:auto;padding-bottom:8px}
+.timeline-day{min-width:140px;border:1px solid var(--border-dim);border-left:none}
+.timeline-day:first-child{border-left:1px solid var(--border-dim);border-radius:4px 0 0 4px}
+.timeline-day:last-child{border-radius:0 4px 4px 0}
+.timeline-day-head{padding:7px 10px;background:rgba(0,0,0,0.3);border-bottom:1px solid var(--border-dim);text-align:center}
+.timeline-day-label{font-family:var(--font-display);font-size:14px;letter-spacing:1px;color:var(--accent)}
+.timeline-day-body{padding:10px}
+.timeline-field{width:100%;background:transparent;border:none;outline:none;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;resize:none;height:80px;line-height:1.5}
+.timeline-risk{display:flex;gap:4px;justify-content:center;padding:6px 0;border-top:1px solid var(--border-dim)}
+.timeline-risk-btn{width:20px;height:20px;border-radius:50%;border:2px solid;cursor:pointer;transition:transform .15s}
+.timeline-risk-btn:hover{transform:scale(1.2)}
+.timeline-risk-btn.grn{border-color:var(--green)} .timeline-risk-btn.amb{border-color:var(--amber)} .timeline-risk-btn.red{border-color:var(--red)}
+.timeline-risk-btn.grn.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+.timeline-risk-btn.amb.on{background:var(--amber);box-shadow:0 0 8px var(--amber)}
+.timeline-risk-btn.red.on{background:var(--red);box-shadow:0 0 8px var(--red)}
+
+
+.asset-table{width:100%;border-collapse:collapse}
+.asset-table th{padding:8px 12px;background:rgba(0,0,0,0.4);border:1px solid var(--border-dim);color:var(--text-secondary);font-family:var(--font-mono);font-size:10px;letter-spacing:1px}
+.asset-table td{border:1px solid var(--border-dim);padding:0}
+.asset-table td textarea{width:100%;background:transparent;border:none;outline:none;color:var(--text-primary);font-family:var(--font-mono);font-size:11px;padding:8px 10px;resize:none;min-height:60px;line-height:1.5}
+
+.lightbox{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center}
+.lightbox-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.95)}
+.lightbox-inner{position:relative;max-width:95vw;max-height:95vh}
+.lightbox-close{position:absolute;top:-38px;right:0;background:none;border:1px solid var(--border-mid);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:11px;padding:4px 10px;cursor:pointer}
+.lightbox-close:hover{border-color:var(--red);color:var(--red)}
+.lightbox-inner img{max-width:95vw;max-height:88vh;object-fit:contain;border-radius:3px;position:relative;z-index:1}
+.lightbox-caption{position:relative;z-index:1;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);text-align:center;margin-top:8px}
+
+.compare-modal{position:fixed;inset:0;z-index:4000;display:flex;align-items:center;justify-content:center}
+.compare-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.9)}
+.compare-inner{position:relative;z-index:1;background:var(--bg-surface);border:1px solid var(--border-mid);border-radius:8px;width:92vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column}
+.compare-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border-dim)}
+.compare-title{font-family:var(--font-display);font-size:16px;letter-spacing:2px;color:var(--accent)}
+.compare-close{background:none;border:1px solid var(--border-mid);border-radius:3px;color:var(--text-dim);font-size:12px;padding:4px 10px;cursor:pointer}
+.compare-close:hover{border-color:var(--red);color:var(--red)}
+.compare-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;padding:16px;overflow-y:auto;flex:1}
+.compare-item{border:1px solid var(--border-dim);border-radius:4px;overflow:hidden}
+.compare-item-title{padding:6px 10px;background:rgba(0,0,0,0.3);font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);letter-spacing:1px;border-bottom:1px solid var(--border-dim)}
+.compare-item img{width:100%;object-fit:contain;max-height:300px}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg-surface);border:1px solid var(--border-mid);border-radius:5px;padding:10px 18px;font-family:var(--font-mono);font-size:12px;color:var(--text-primary);z-index:9000;box-shadow:0 8px 32px rgba(0,0,0,0.8);animation:slideIn .2s ease}
+@keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}
+
+/* ============================================================
+   PRODUCT VIEWER — multi-file tabs, zoom, fullscreen, download
+============================================================ */
+.product-viewer{border:1px solid var(--border-dim);border-radius:6px;overflow:hidden;background:var(--bg-card);margin-bottom:14px}
+.product-viewer-header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(0,0,0,0.35);border-bottom:1px solid var(--border-dim)}
+.product-viewer-title{font-family:var(--font-display);font-size:14px;letter-spacing:2px;color:var(--accent)}
+.product-viewer-controls{display:flex;gap:5px;align-items:center}
+.pv-btn{background:none;border:1px solid var(--border-dim);border-radius:3px;color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:3px 8px;cursor:pointer;transition:all .15s;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+.pv-btn:hover{border-color:var(--accent-dim);color:var(--accent)}
+.pv-btn.danger:hover{border-color:var(--red);color:var(--red)}
+.pv-btn.active{border-color:var(--accent-dim);color:var(--accent);background:var(--accent-glow)}
+
+/* Product tabs (cycle selector) */
+.product-tabs{display:flex;gap:3px;padding:8px 12px;background:var(--bg-raised);border-bottom:1px solid var(--border-dim);overflow-x:auto;flex-wrap:nowrap}
+.product-tabs::-webkit-scrollbar{height:3px}
+.product-tab{background:var(--bg-card);border:1px solid var(--border-dim);border-radius:3px;color:var(--text-secondary);font-family:var(--font-mono);font-size:10px;padding:4px 12px;cursor:pointer;white-space:nowrap;transition:all .15s;letter-spacing:.5px}
+.product-tab:hover{border-color:var(--border-bright);color:var(--text-primary)}
+.product-tab.active{background:var(--accent-glow);border-color:var(--accent-dim);color:var(--accent);font-weight:600}
+.product-tab.uploaded{border-color:var(--green);color:var(--green)}
+.product-tab.uploaded.active{background:rgba(0,255,157,0.1)}
+
+/* Image display area */
+.product-display{position:relative;min-height:200px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);overflow:hidden}
+.product-display img,.product-display video{max-width:100%;max-height:500px;object-fit:contain;display:block;transition:transform .2s;cursor:zoom-in;border-radius:2px}
+.product-display.zoomed img,.product-display.zoomed video{cursor:zoom-out;transform:scale(1.8);transform-origin:center}
+.product-empty{text-align:center;padding:40px 20px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);line-height:2}
+.product-empty .upload-hint{font-size:18px;margin-bottom:10px}
+
+/* Drop overlay */
+.product-drop-overlay{position:absolute;inset:0;background:rgba(0,210,255,0.1);border:2px dashed var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:13px;color:var(--accent);letter-spacing:2px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
+.product-display.drag-over .product-drop-overlay{opacity:1}
+.product-display input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:5}
+
+/* File info bar */
+.product-info-bar{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:var(--bg-void);border-top:1px solid var(--border-dim);font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:1px}
+.product-info-left{display:flex;gap:12px;align-items:center}
+.product-info-badge{padding:2px 6px;border-radius:2px;font-size:8px;letter-spacing:1px}
+.badge-gif{background:rgba(255,184,0,0.15);color:var(--amber);border:1px solid rgba(255,184,0,0.3)}
+.badge-img{background:var(--accent-glow);color:var(--accent);border:1px solid var(--accent-dim)}
+.badge-pdf{background:rgba(255,51,85,0.1);color:var(--red);border:1px solid rgba(255,51,85,0.3)}
+.badge-vid{background:rgba(0,255,157,0.1);color:var(--green);border:1px solid rgba(0,255,157,0.3)}
+
+/* Fullscreen overlay */
+.fullscreen-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.97);z-index:8000;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.fullscreen-overlay.hidden{display:none}
+.fullscreen-toolbar{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);border-bottom:1px solid var(--border-dim)}
+.fullscreen-title{font-family:var(--font-display);font-size:16px;letter-spacing:2px;color:var(--accent)}
+.fullscreen-toolbar-right{display:flex;gap:8px}
+.fullscreen-img-wrap{display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding:70px 20px 50px;overflow:auto}
+.fullscreen-img-wrap img,.fullscreen-img-wrap video{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px}
+.fullscreen-zoom-wrap{transition:transform .2s;transform-origin:center}
+.fullscreen-nav{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center}
+.fullscreen-nav-btn{background:var(--bg-surface);border:1px solid var(--border-mid);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:12px;padding:6px 16px;cursor:pointer}
+.fullscreen-nav-btn:hover{border-color:var(--accent);color:var(--accent)}
+.fullscreen-counter{font-family:var(--font-mono);font-size:11px;color:var(--text-secondary)}
+.zoom-controls{position:absolute;bottom:60px;right:20px;display:flex;flex-direction:column;gap:4px}
+.zoom-btn{background:var(--bg-surface);border:1px solid var(--border-mid);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.zoom-btn:hover{border-color:var(--accent);color:var(--accent)}
+</style>
+</head>
+
+<body>
+<!-- LOGIN -->
+<div id="loginOverlay" class="login-overlay">
+  <div class="login-box">
+    <div class="login-emblem">
+      <div class="emblem-ring"></div>
+      <div class="emblem-inner"><span class="emblem-icon">⬡</span></div>
+    </div>
+    <div class="login-title">VENEZUELA ABSOLUTE RESOLVE</div>
+    <div class="login-subtitle">OPERATIONAL WEATHER ANALYSIS SYSTEM</div>
+    <div class="login-classification">// ACCESS RESTRICTED //</div>
+
+    <div class="login-fields">
+      <div class="field-group">
+        <label class="field-label" for="loginUser">OPERATOR ID</label>
+        <input type="text" id="loginUser" class="login-input" placeholder="Enter operator ID" autocomplete="off" />
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="loginPass">ACCESS CODE</label>
+        <input type="password" id="loginPass" class="login-input" placeholder="Enter access code" autocomplete="off" />
+      </div>
+      <div class="login-hint">Default: demo / demo1234</div>
+      <button class="login-btn" type="button" id="loginBtn">
+        <span class="btn-text">AUTHENTICATE</span>
+        <span class="btn-arrow">→</span>
+      </button>
+      <div id="loginError" class="login-error hidden">AUTHENTICATION FAILED - INVALID CREDENTIALS</div>
+    </div>
+
+    <div class="login-footer"><span class="status-dot active"></span> SYSTEM OPERATIONAL</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="app hidden">
+  <header class="header">
+    <div class="header-left">
+      <div class="header-logo"><span class="logo-hex">⬡</span></div>
+      <div class="header-brand">
+        <div class="brand-mission">VENEZUELA ABSOLUTE RESOLVE</div>
+        <div class="brand-sub">OPERATIONAL WEATHER ANALYSIS SYSTEM</div>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="globalSearch" class="search-input" placeholder="SEARCH SECTIONS, CONTENT..." />
+        <span class="search-clear" id="searchClear">✕</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="header-clock">
+        <div class="clock-utc" id="clockUTC">00:00:00Z</div>
+        <div class="clock-date" id="clockDate">-- --- ----</div>
+      </div>
+      <div class="header-status"><span class="status-dot active"></span><span class="status-label">LIVE</span></div>
+      <button class="logout-btn" type="button" id="logoutBtn" title="Logout">⏻</button>
+    </div>
+  </header>
+
+  <div class="loc-tabs">
+    <div class="loc-tab-track" id="locTabTrack">
+      <button class="loc-tab active" data-loc="TJRV" type="button">
+        <span class="loc-icao">TJRV</span><span class="loc-name">Roosevelt Roads, PR</span>
+      </button>
+      <button class="loc-tab" data-loc="SVMI" type="button">
+        <span class="loc-icao">SVMI</span><span class="loc-name">Simon Bolivar, VE</span>
+      </button>
+      <button class="loc-tab-add" id="addAorBtn" type="button" title="Duplicate AOR"><span>+ AOR</span></button>
+    </div>
+    <div class="loc-cycle">
+      <span class="cycle-label">CYCLE:</span>
+      <select class="cycle-select" id="cycleSelect">
+        <option value="00Z">00Z</option>
+        <option value="06Z">06Z</option>
+        <option value="12Z" selected>12Z</option>
+        <option value="18Z">18Z</option>
+      </select>
+    </div>
+  </div>
+
+  <nav class="section-nav">
+    <div class="nav-items" id="sectionNav">
+      <button class="nav-item active" data-section="climatology" type="button"><span class="nav-icon">◈</span> CLIMATOLOGY</button>
+      <button class="nav-item" data-section="observations" type="button"><span class="nav-icon">◈</span> OBSERVATIONS</button>
+      <button class="nav-item" data-section="upper-air" type="button"><span class="nav-icon">◈</span> UPPER AIR</button>
+      <button class="nav-item" data-section="model-guidance" type="button"><span class="nav-icon">◈</span> MODEL GUIDANCE</button>
+      <button class="nav-item" data-section="integrated" type="button"><span class="nav-icon">◈</span> INTEGRATED ASSESSMENT</button>
+      <button class="nav-item" data-section="file-library" type="button"><span class="nav-icon">◈</span> FILE LIBRARY</button>
+    </div>
+  </nav>
+
+  <main class="content" id="mainContent"></main>
+</div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox" class="lightbox hidden" aria-hidden="true">
+  <div class="lightbox-backdrop" id="lightboxBackdrop"></div>
+  <div class="lightbox-inner">
+    <button class="lightbox-close" type="button" id="lightboxClose">✕ CLOSE</button>
+    <img id="lightboxImg" src="" alt="" />
+    <div class="lightbox-caption" id="lightboxCaption"></div>
+  </div>
+</div>
+
+<!-- COMPARE MODAL -->
+<div id="compareModal" class="compare-modal hidden" aria-hidden="true">
+  <div class="compare-backdrop" id="compareBackdrop"></div>
+  <div class="compare-inner">
+    <div class="compare-header">
+      <span class="compare-title">SIDE-BY-SIDE COMPARISON</span>
+      <button class="compare-close" type="button" id="compareClose">✕</button>
+    </div>
+    <div class="compare-grid" id="compareGrid"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast hidden"></div>
+
+<!-- FULLSCREEN VIEWER -->
+<div id="fullscreenOverlay" class="fullscreen-overlay hidden">
+  <div class="fullscreen-toolbar">
+    <div class="fullscreen-title" id="fsTitle">PRODUCT VIEWER</div>
+    <div class="fullscreen-toolbar-right">
+      <button class="pv-btn" id="fsDownload">⬇ DOWNLOAD</button>
+      <button class="pv-btn" onclick="fsZoomIn()">＋ ZOOM IN</button>
+      <button class="pv-btn" onclick="fsZoomOut()">－ ZOOM OUT</button>
+      <button class="pv-btn" onclick="fsResetZoom()">⊡ RESET</button>
+      <button class="pv-btn danger" onclick="closeFullscreen()">✕ CLOSE</button>
+    </div>
+  </div>
+  <div class="fullscreen-img-wrap" id="fsImgWrap">
+    <div class="fullscreen-zoom-wrap" id="fsZoomWrap">
+      <img id="fsImg" src="" alt="" style="display:none"/>
+      <video id="fsVideo" controls loop style="display:none;max-width:90vw;max-height:80vh"></video>
+    </div>
+  </div>
+  <div class="fullscreen-nav">
+    <button class="fullscreen-nav-btn" onclick="fsNav(-1)">◀ PREV</button>
+    <span class="fullscreen-counter" id="fsCounter"></span>
+    <button class="fullscreen-nav-btn" onclick="fsNav(1)">NEXT ▶</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   OPWS - Single-file app
+   - Login gate + sessionStorage
+   - Tabs: Locations + Sections
+   - Upload cards with localStorage persistence
+============================================================ */
+
+const STATE = {
+  currentLocation: "TJRV",
+  currentSection: "climatology",
+  currentCycle: "12Z",
+  locations: ["TJRV","SVMI"],
+  searchQuery: "",
+  compareImages: {},        // key -> {src,label,loc,section,cardId}
+  uploadedImages: {},       // key -> dataURL
+  analysisNotes: {},        // key -> text
+  stoplightData: {},        // loc -> rows
+  timelineRisks: {},        // loc__day -> g/a/r
+  loginUser: null,
+};
+
+const LS_KEY = "var_opws_state_v2";
+const SESSION_KEY = "var_opws_user_v2";
+const VALID_CREDENTIALS = { demo: "demo1234", admin: "opws2025", analyst: "wx4ops!" };
+
+/* ============================================================
+   SUPABASE CONFIG
+============================================================ */
+const SUPABASE_URL = "https://wovawiqzzugpdmunxlzt.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndvdmF3aXF6enVncGRtdW54bHp0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMDkxNTIsImV4cCI6MjA4Nzc4NTE1Mn0.3FwVrHGz4iMF5PZ5lpHpad-NJZhfvtb7En5jYqGIh88";
+const SUPABASE_BUCKET = "var-opwx";
+
+async function supabaseUpload(file, path){
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${SUPABASE_BUCKET}/${path}`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type": file.type,
+      "x-upsert": "true",
+    },
+    body: file,
+  });
+  if(!res.ok){ const e = await res.text(); throw new Error(e); }
+  return `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_BUCKET}/${path}`;
+}
+
+async function supabaseDelete(path){
+  await fetch(`${SUPABASE_URL}/storage/v1/object/${SUPABASE_BUCKET}/${path}`, {
+    method: "DELETE",
+    headers: { "Authorization": `Bearer ${SUPABASE_ANON_KEY}` },
+  });
+}
+
+async function supabaseList(prefix=""){
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${SUPABASE_BUCKET}`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ prefix, limit: 500, offset: 0, sortBy: { column: "created_at", order: "desc" } }),
+  });
+  if(!res.ok) return [];
+  const data = await res.json();
+  return data || [];
+}
+
+function safeId(s){ return String(s).replace(/[^a-z0-9_-]/gi, "_"); }
+
+/* ---------- Persistence ---------- */
+function saveState(){
+  try{
+    const toSave = {
+      uploadedImages: STATE.uploadedImages,
+      analysisNotes: STATE.analysisNotes,
+      stoplightData: STATE.stoplightData,
+      timelineRisks: STATE.timelineRisks,
+      locations: STATE.locations,
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(toSave));
+  }catch(e){
+    console.warn("Save failed", e);
+  }
+}
+function loadState(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return;
+    const saved = JSON.parse(raw);
+    Object.assign(STATE, saved);
+  }catch(e){
+    console.warn("Load failed", e);
+  }
+}
+
+/* ---------- Helpers ---------- */
+function escapeHtml(s){
+  if(s === null || s === undefined) return "";
+  return String(s)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#39;");
+}
+function showToast(msg, duration=2500){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.remove("hidden");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.add("hidden"), duration);
+}
+function startClock(){
+  const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  const pad = n => String(n).padStart(2,"0");
+  function tick(){
+    const now = new Date();
+    document.getElementById("clockUTC").textContent =
+      `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())}Z`;
+    document.getElementById("clockDate").textContent = "24 FEB 2026";
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+/* ---------- Image + Notes ---------- */
+function imgKey(loc, section, cardId){ return `${loc}__${section}__${cardId}`; }
+function getImage(loc, section, cardId){ return STATE.uploadedImages[imgKey(loc,section,cardId)] || null; }
+function setImage(loc, section, cardId, dataURL){ STATE.uploadedImages[imgKey(loc,section,cardId)] = dataURL; saveState(); }
+function clearImage(loc, section, cardId){ delete STATE.uploadedImages[imgKey(loc,section,cardId)]; saveState(); }
+
+function noteKey(loc, section, fieldId){ return `${loc}__${section}__${fieldId}`; }
+function getNote(loc, section, fieldId){ return STATE.analysisNotes[noteKey(loc,section,fieldId)] || ""; }
+function setNote(loc, section, fieldId, text){ STATE.analysisNotes[noteKey(loc,section,fieldId)] = text; saveState(); }
+
+
+/* ---------- Stoplight defaults ---------- */
+
+function defaultStoplight(){
+  return [
+    { threat:"Low-Level Turbulence", air:"a", isr:"g", maritime:"g", ground:"g", remarks:"" },
+    { threat:"Convective Activity / CBs", air:"r", isr:"r", maritime:"a", ground:"a", remarks:"" },
+    { threat:"Icing (FL100-FL200)", air:"a", isr:"a", maritime:"g", ground:"g", remarks:"" },
+    { threat:"Low Visibility / Fog", air:"r", isr:"r", maritime:"a", ground:"a", remarks:"" },
+    { threat:"High Surface Winds", air:"a", isr:"g", maritime:"r", ground:"a", remarks:"" },
+    { threat:"High Upper Winds (>=100kts)", air:"a", isr:"a", maritime:"g", ground:"g", remarks:"" },
+    { threat:"IR Degradation", air:"g", isr:"r", maritime:"g", ground:"g", remarks:"" },
+    { threat:"Radar Degradation", air:"g", isr:"r", maritime:"a", ground:"g", remarks:"" },
+  ];
+}
+function getStoplight(loc){
+  if(!STATE.stoplightData[loc]) STATE.stoplightData[loc] = defaultStoplight();
+  return STATE.stoplightData[loc];
+}
+function setStoplight(loc, data){ STATE.stoplightData[loc] = data; saveState(); }
+
+function getTimelineRisk(loc, day){ return STATE.timelineRisks[`${loc}__${day}`] || ""; }
+function setTimelineRisk(loc, day, risk){ STATE.timelineRisks[`${loc}__${day}`] = risk; saveState(); }
+
+/* ---------- UI builders ---------- */
+function buildPageHeader(title, subtitle, chips=[]){
+  return `
+    <div class="page-header">
+      <div class="page-header-inner">
+        <div>
+          <div class="page-title">${escapeHtml(title)}</div>
+          <div class="page-subtitle">${escapeHtml(subtitle)}</div>
+        </div>
+      </div>
+      ${chips.length ? `<div class="page-meta">${chips.map(c => `<span class="meta-chip ${c.active ? "active" : ""}">${escapeHtml(c.label)}</span>`).join("")}</div>` : ""}
+    </div>
+  `;
+}
+function buildCollapsible(id, num, title, badge, content, defaultOpen=true){
+  const safe = safeId(id);
+  return `
+    <div class="collapsible ${defaultOpen ? "" : "collapsed"}" id="coll-${safe}">
+      <div class="collapsible-header" data-coll="${safe}">
+        <div class="collapsible-left">
+          <span class="collapsible-num">${escapeHtml(num||"")}</span>
+          <span class="collapsible-title">${escapeHtml(title)}</span>
+          ${badge ? `<span class="collapsible-badge">${escapeHtml(badge)}</span>` : ""}
+        </div>
+        <div class="collapsible-right">
+          <span class="chevron ${defaultOpen ? "open" : ""}" id="chev-${safe}">▶</span>
+        </div>
+      </div>
+      <div class="collapsible-body">${content}</div>
+    </div>
+  `;
+}
+function buildCard(title, content, actions=""){
+  return `
+    <div class="card fade-in">
+      <div class="card-head">
+        <span class="card-title">${escapeHtml(title)}</span>
+        <div class="card-actions">${actions}</div>
+      </div>
+      <div class="card-body">${content}</div>
+    </div>
+  `;
+}
+
+function buildAnalysisField(loc, section, fieldId, placeholder="Enter analyst discussion..."){
+  const val = getNote(loc, section, fieldId);
+  const id = safeId(`af-${loc}-${section}-${fieldId}`);
+  return `
+    <span class="analysis-label">ANALYST DISCUSSION</span>
+    <textarea class="analysis-field" id="${id}" placeholder="${escapeHtml(placeholder)}"
+      data-note-loc="${escapeHtml(loc)}" data-note-sec="${escapeHtml(section)}" data-note-id="${escapeHtml(fieldId)}"
+    >${escapeHtml(val)}</textarea>
+  `;
+}
+
+function buildDiscussionNotes(loc, section, fieldId){
+  const k = `disc_${fieldId}`;
+  const val = getNote(loc, section, k);
+  const id = safeId(`dn-${loc}-${section}-${fieldId}`);
+  return `
+    <div class="discussion-wrap">
+      <div class="discussion-toggle" data-disc="${id}">
+        <span id="disc-chev-${id}">▶</span> COLLAPSIBLE DISCUSSION NOTES
+      </div>
+      <div class="discussion-body hidden" id="disc-body-${id}">
+        <textarea class="discussion-field" placeholder="Extended discussion notes, model comparison, uncertainty..."
+          data-note-loc="${escapeHtml(loc)}" data-note-sec="${escapeHtml(section)}" data-note-id="${escapeHtml(k)}"
+        >${escapeHtml(val)}</textarea>
+      </div>
+    </div>
+  `;
+}
+
+function buildUploadZone(loc, section, cardId, opts={}){
+  const label = opts.label || "";
+  const showCompare = !!opts.showCompare;
+  const existing = getImage(loc, section, cardId);
+  const zoneId = safeId(`uz-${loc}-${section}-${cardId}`);
+  const isImage = existing && (existing.startsWith("data:image") || /\.(png|jpg|jpeg|gif|webp)$/i.test(existing));
+
+  return `
+    <div class="upload-zone ${existing ? "has-content" : ""}" id="${zoneId}"
+      data-loc="${escapeHtml(loc)}" data-sec="${escapeHtml(section)}" data-card="${escapeHtml(cardId)}"
+    >
+      ${existing
+        ? isImage
+          ? `<img src="${existing}" class="upload-preview" alt="${escapeHtml(label)}" />`
+          : `<div style="text-align:center;padding:20px"><div style="font-size:36px">📁</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--accent);margin-top:6px">FILE UPLOADED</div><a href="${existing}" target="_blank" style="color:var(--accent);font-size:10px;font-family:var(--font-mono)">⬇ OPEN</a></div>`
+        : `<div class="upload-icon">⬆</div>
+           <div class="upload-text"><strong>DRAG & DROP</strong><br/>or click to upload<br/>PNG · JPG · GIF · PDF · MP4 · XLSX</div>`
+      }
+      <input type="file" accept="*/*" />
+    </div>
+    <div class="upload-controls" data-controls-for="${zoneId}">
+      ${existing ? `
+        ${isImage ? `<button class="card-btn" type="button" data-expand="${zoneId}" data-caption="${escapeHtml(label)}">⊞ EXPAND</button>` : ""}
+        <button class="card-btn danger" type="button" data-clear="${zoneId}">✕ CLEAR</button>
+        ${showCompare && isImage ? `<button class="card-btn" type="button" data-compare="${zoneId}" data-label="${escapeHtml(label)}">⊟ COMPARE</button>` : ""}
+      ` : ""}
+    </div>
+  `;
+}
+
+/* ---------- Sections ---------- */
+function buildClimatology(loc){
+  const S="climatology";
+
+  const climoVid = safeId(`climo-${loc}`);
+  const climoContent = buildProductViewer(climoVid, "CLIMATOLOGY SUMMARY",
+    [{label:"14WS CLIMO SUMMARY"}],
+    loc, S, "climo_summary",
+    {notePlaceholder:"Describe climatological norms, seasonal patterns, precipitation, temperature, and wind regimes..."});
+
+  const topoVid = safeId(`topo-${loc}`);
+  const topoLabel = loc === "TJRV" ? "PUERTO RICO TOPOGRAPHY" : "VENEZUELA TOPOGRAPHY";
+  const topoContent = buildProductViewer(topoVid, "TOPOGRAPHY MAP",
+    [{label:topoLabel}],
+    loc, S, "topo",
+    {notePlaceholder:"Describe terrain features, elevation impacts on weather, orographic lift, channeling effects..."});
+
+  return buildPageHeader("CLIMATOLOGY", `HISTORICAL CLIMATE ANALYSIS - ${loc}`, [
+    {label:`ICAO: ${loc}`, active:true},
+    {label:"SECTION: CLIMO"},
+    {label:`CYCLE: ${STATE.currentCycle}`},
+  ]) + [
+    buildCollapsible(`${loc}_climo_sum`, "01", "CLIMATOLOGY SUMMARY", "CLIMO", climoContent),
+    buildCollapsible(`${loc}_climo_topo`,"02", "TOPOGRAPHY MAP",       "TOPO",  topoContent),
+  ].join("");
+}
+
+function buildObservations(loc){
+  const S="observations";
+  const satVid = safeId(`sat-${loc}`);
+  const satContent = buildProductViewer(satVid, "SATELLITE LOOPS",
+    [{label:"VIS 11Z-18Z"},{label:"IR 11Z-18Z"},{label:"WV 11Z-18Z"}],
+    loc, S, "sat", {notePlaceholder:"Discuss satellite features, cloud morphology, convective tops, WV dynamics..."});
+
+  const metVid = safeId(`met-${loc}`);
+  const metContent = buildProductViewer(metVid, "METEOGRAM",
+    [{label:"METEOGRAM"}], loc, S, "meteogram",
+    {notePlaceholder:"Discuss QPF accumulations, wind evolution, temperature trends..."});
+
+  const sfcVid = safeId(`sfc-${loc}`);
+  const sfcContent = buildProductViewer(sfcVid, "SURFACE OBSERVATIONS / METAR",
+    [{label:"SFC ANALYSIS"},{label:"METAR DATA"}], loc, S, "surface",
+    {notePlaceholder:"Discuss METAR/SYNOP analysis, surface pressure patterns, fronts..."});
+
+  const skewVid = safeId(`skew-${loc}`);
+  const skewTabs = [
+    "24/17Z","24/18Z","24/19Z","24/20Z","24/21Z","24/22Z","24/23Z",
+    "25/00Z","25/01Z","25/02Z","25/03Z","25/04Z","25/05Z","25/06Z",
+    "25/07Z","25/08Z","25/09Z","25/10Z","25/11Z","25/12Z","25/13Z",
+    "25/14Z","25/15Z","25/16Z"
+  ].map(t=>({label:t}));
+  const skewContent = buildProductViewer(skewVid, "SKEW-T SOUNDINGS",
+    skewTabs, loc, S, "skewt",
+    {notePlaceholder:"Discuss thermodynamic profile, instability indices, LCL/LFC, moisture depth, wind shear..."});
+
+  const ctVid = safeId(`ct-${loc}`);
+  const ctTabs = ["25-01","25-03","25-05","25-07","25-09"].map(t=>({label:`${t} TRAILS`}));
+  const ctContent = buildProductViewer(ctVid, "CONTRAIL PRODUCTS",
+    ctTabs, loc, S, "contrails",
+    {notePlaceholder:"Discuss contrail persistence, tropopause height, atmospheric moisture..."});
+
+  return buildPageHeader("OBSERVATIONS", `CURRENT CONDITIONS & LOOP ANALYSIS - ${loc}`, [
+    {label:`ICAO: ${loc}`, active:true},
+    {label:"SECTION: OBS"},
+    {label:`CYCLE: ${STATE.currentCycle}`},
+  ]) + [
+    buildCollapsible(`${loc}_obs_sat`, "01","SATELLITE LOOPS",         "SAT/GIF",  satContent),
+    buildCollapsible(`${loc}_obs_sfc`, "02","SURFACE OBSERVATIONS",    "METAR",    sfcContent),
+    buildCollapsible(`${loc}_obs_skew`,"03","SKEW-T SOUNDINGS",  "SOUNDING", skewContent),
+    buildCollapsible(`${loc}_obs_met`, "04","METEOGRAM",               "METGM",    metContent),
+    buildCollapsible(`${loc}_obs_ct`,  "05","CONTRAIL PRODUCTS",       "CONTRAILS",ctContent),
+  ].join("");
+}
+
+function buildUpperAir(loc){
+  const S="upper-air";
+  // Upper Air = single 12Z chart per level — ordered 300, 500, 700, 850, SFC
+  const levels = [
+    {key:"300", label:"300 MB", badge:"300MB", ph:"Discuss jet stream, divergence, wind maxima at 300mb..."},
+    {key:"500", label:"500 MB", badge:"500MB", ph:"Discuss mid-level trough/ridge, height anomalies, vorticity at 500mb..."},
+    {key:"700", label:"700 MB", badge:"700MB", ph:"Discuss mid-level moisture, thermal advection, vertical motion at 700mb..."},
+    {key:"850", label:"850 MB", badge:"850MB", ph:"Discuss low-level jet, moisture flux, warm advection at 850mb..."},
+    {key:"sfc", label:"SURFACE", badge:"SFC",  ph:"Discuss surface pressure, fronts, convergence zones..."},
+  ];
+
+  const ensVid = safeId(`ua-ens-${loc}`);
+  const ensContent = buildProductViewer(ensVid, "ENSEMBLE SOUNDING",
+    [{label:"ENSEMBLE"}], loc, S, "ensemble",
+    {notePlaceholder:"Discuss ensemble sounding spread, probability of instability..."});
+
+  const levelSections = levels.map((lv,i) => {
+    const vid = safeId(`ua-${lv.key}-${loc}`);
+    const content = buildProductViewer(vid, `${lv.label} ANALYSIS`,
+      [{label:"12Z"}],
+      loc, S, `ua_${lv.key}`, {notePlaceholder: lv.ph});
+    return buildCollapsible(`${loc}_ua_${lv.key}`, `0${i+1}`, `${lv.label} ANALYSIS`, lv.badge, content);
+  });
+
+  return buildPageHeader("UPPER AIR ANALYSIS", `SYNOPTIC-SCALE PATTERN ANALYSIS - ${loc}`, [
+    {label:`ICAO: ${loc}`, active:true},
+    {label:"SECTION: UPPER AIR"},
+    {label:`CYCLE: ${STATE.currentCycle}`},
+  ]) + levelSections.join("") +
+  buildCollapsible(`${loc}_ua_ens`,"06","ENSEMBLE SOUNDING","ENSEMBLE", ensContent);
+}
+
+function buildModelGuidance(loc){
+  const S="model-guidance";
+  const cycles = ["00Z","02Z","04Z","06Z","08Z","10Z","12Z"];
+  // Ordered 300, 500, 700, 850, SFC — no ensemble
+  const levels = [
+    {key:"300", label:"300 MB"},
+    {key:"500", label:"500 MB"},
+    {key:"700", label:"700 MB"},
+    {key:"850", label:"850 MB"},
+    {key:"sfc", label:"SURFACE"},
+  ];
+
+  const levelSections = levels.map((lv,i)=>{
+    const vid = safeId(`mg-${lv.key}-${loc}`);
+    const tabs = cycles.map(c=>({label:c}));
+    const content = buildProductViewer(vid, `${lv.label} MODEL CHARTS`, tabs, loc, S, `mg_${lv.key}`,
+      {notePlaceholder:`Discuss ${lv.label} model guidance, key features, forecast confidence...`});
+    return buildCollapsible(`${loc}_mg_${lv.key}`, `0${i+1}`, `${lv.label} ANALYSIS`, lv.label, content);
+  });
+
+  return buildPageHeader("MODEL GUIDANCE", `MODEL ANALYSIS - ${loc}`, [
+    {label:`ICAO: ${loc}`, active:true},
+    {label:"SECTION: MODEL"},
+    {label:`CYCLE: ${STATE.currentCycle}`},
+  ]) + levelSections.join("") + `
+  <div style="text-align:right;margin-top:8px">
+    <button class="card-btn" type="button" id="openCompareBtn">⊟ OPEN COMPARE VIEW</button>
+  </div>`;
+}
+
+
+function lightCell(val, loc, rowIdx, col){
+  const map = { g:"GREEN", a:"AMBER", r:"RED" };
+  return `
+    <td>
+      <select data-stop-loc="${escapeHtml(loc)}" data-stop-row="${rowIdx}" data-stop-col="${escapeHtml(col)}" class="${escapeHtml(val)}">
+        ${["g","a","r"].map(v => `<option value="${v}" ${val===v?"selected":""}>${map[v]}</option>`).join("")}
+      </select>
+    </td>
+  `;
+}
+
+function buildIntegrated(loc){
+  const S="integrated";
+
+  // OPORD — single upload
+  const opordVid = safeId(`opord-${loc}`);
+  const opordContent = buildProductViewer(opordVid, "OPORD — ABSOLUTE RESOLVE 2026",
+    [{label:"ABSOLUTE RESOLVE OPORD_2026"}],
+    loc, S, "opord",
+    {notePlaceholder:"OPORD summary, key tasks, commander's intent, coordinating instructions..."});
+
+  // SCENARIO — single upload
+  const scenVid = safeId(`scen-${loc}`);
+  const scenContent = buildProductViewer(scenVid, "SCENARIO",
+    [{label:"SCENARIO"}],
+    loc, S, "scenario",
+    {notePlaceholder:"Describe scenario assumptions, key decision points, branches and sequels..."});
+
+  // IMPACTS — 160th and F-35 tabs (PDFs)
+  const impVid = safeId(`imp-${loc}`);
+  const impContent = buildProductViewer(impVid, "WEATHER IMPACTS BY PLATFORM",
+    [{label:"160th SOAR"},{label:"F-35"}],
+    loc, S, "impacts",
+    {notePlaceholder:"Describe platform-specific weather impacts, go/no-go criteria, mitigation measures, crew coordination requirements..."});
+
+  return buildPageHeader("INTEGRATED ASSESSMENT", `OPERATIONAL WEATHER ASSESSMENT - ${loc}`, [
+    {label:`ICAO: ${loc}`, active:true},
+    {label:"SECTION: INTEGRATED"},
+    {label:`CYCLE: ${STATE.currentCycle}`},
+  ]) + [
+    buildCollapsible(`${loc}_int_opord`,  "01", "OPORD",                    "OPORD",    opordContent),
+    buildCollapsible(`${loc}_int_scen`,   "02", "SCENARIO",                 "SCENARIO", scenContent),
+    buildCollapsible(`${loc}_int_imp`,    "03", "WEATHER IMPACTS BY PLATFORM", "IMPACTS",  impContent),
+  ].join("");
+}
+
+
+function buildFileLibrary(loc){
+  return buildPageHeader("FILE LIBRARY", `SHARED OPERATIONAL FILES — ${loc}`, [
+    {label:`ICAO: ${loc}`, active:true},
+    {label:"STORAGE: SUPABASE"},
+    {label:"ALL USERS"},
+  ]) + `
+  <div class="card fade-in">
+    <div class="card-head">
+      <span class="card-title">📁 UPLOAD FILES TO SHARED LIBRARY</span>
+    </div>
+    <div class="card-body">
+      <div id="lib-drop-zone" style="
+        border:2px dashed var(--border-bright);border-radius:6px;padding:32px;text-align:center;
+        cursor:pointer;transition:all .2s;background:var(--bg-raised);margin-bottom:16px;
+      ">
+        <div style="font-size:36px;margin-bottom:8px">⬆</div>
+        <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary)">
+          <strong style="color:var(--accent)">DRAG & DROP FILES HERE</strong><br/>
+          or click to browse — Images, PDFs, Videos, Spreadsheets, any file type<br/>
+          <span style="color:var(--text-dim);font-size:10px">Files upload to Supabase cloud — visible to ALL users instantly</span>
+        </div>
+        <input type="file" id="lib-file-input" multiple accept="*/*" style="display:none"/>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <select id="lib-category" style="background:var(--bg-raised);border:1px solid var(--border-mid);color:var(--accent);font-family:var(--font-mono);font-size:11px;padding:6px 10px;border-radius:var(--radius)">
+          <option value="general">GENERAL</option>
+          <option value="opord">OPORD</option>
+          <option value="weather">WEATHER PRODUCTS</option>
+          <option value="imagery">IMAGERY</option>
+          <option value="intel">INTEL</option>
+          <option value="admin">ADMIN</option>
+        </select>
+        <input id="lib-tag" placeholder="Optional tag/label..." style="background:var(--bg-raised);border:1px solid var(--border-mid);color:var(--text-primary);font-family:var(--font-mono);font-size:11px;padding:6px 10px;border-radius:var(--radius);flex:1"/>
+      </div>
+      <div id="lib-upload-status" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);min-height:20px"></div>
+    </div>
+  </div>
+
+  <div class="card fade-in">
+    <div class="card-head">
+      <span class="card-title">📂 FILES IN CLOUD LIBRARY</span>
+      <div class="card-actions">
+        <button class="card-btn" type="button" id="lib-refresh-btn">↺ REFRESH</button>
+        <select id="lib-filter" style="background:var(--bg-raised);border:1px solid var(--border-mid);color:var(--accent);font-family:var(--font-mono);font-size:10px;padding:4px 8px;border-radius:var(--radius)">
+          <option value="all">ALL FILES</option>
+          <option value="image">IMAGES</option>
+          <option value="pdf">PDFs</option>
+          <option value="video">VIDEOS</option>
+          <option value="sheet">SPREADSHEETS</option>
+          <option value="other">OTHER</option>
+        </select>
+      </div>
+    </div>
+    <div class="card-body">
+      <div id="lib-file-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;min-height:80px">
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);grid-column:1/-1;text-align:center;padding:20px">
+          Loading files from cloud...
+        </div>
+      </div>
+    </div>
+  </div>
+  `;
+}
+
+
+
+/* ---------- Rendering ---------- */
+function renderLocationTabs(){
+  const track = document.getElementById("locTabTrack");
+  const addBtn = document.getElementById("addAorBtn");
+  track.querySelectorAll(".loc-tab").forEach(el => el.remove());
+  const names = { TJRV:"Roosevelt Roads, PR", SVMI:"Simon Bolivar, VE" };
+
+  STATE.locations.forEach(loc=>{
+    const btn = document.createElement("button");
+    btn.type="button";
+    btn.className = `loc-tab ${loc===STATE.currentLocation ? "active":""}`;
+    btn.dataset.loc = loc;
+    btn.innerHTML = `<span class="loc-icao">${escapeHtml(loc)}</span><span class="loc-name">${escapeHtml(names[loc]||"AOR Location")}</span>`;
+    btn.addEventListener("click", ()=>switchLocation(loc));
+    track.insertBefore(btn, addBtn);
+  });
+}
+
+function renderSectionNav(){
+  document.querySelectorAll("#sectionNav .nav-item").forEach(el=>{
+    el.classList.toggle("active", el.dataset.section === STATE.currentSection);
+  });
+}
+
+function renderSection(){
+  const content = document.getElementById("mainContent");
+  const loc = STATE.currentLocation;
+  const sec = STATE.currentSection;
+
+  let html = "";
+  if(sec==="climatology") html = buildClimatology(loc);
+  else if(sec==="observations") html = buildObservations(loc);
+  else if(sec==="upper-air") html = buildUpperAir(loc);
+  else if(sec==="model-guidance") html = buildModelGuidance(loc);
+  else if(sec==="integrated") html = buildIntegrated(loc);
+  else if(sec==="file-library") html = buildFileLibrary(loc);
+  else html = buildClimatology(loc);
+
+  content.innerHTML = html;
+  content.scrollTop = 0;
+
+  if(STATE.searchQuery) applySearch();
+
+  // Wire file library events after render
+  if(sec==="file-library") wireFileLibrary(loc);
+}
+
+/* ---------- Behavior / Events ---------- */
+function toggleCollapsibleBySafeId(safe){
+  const el = document.getElementById(`coll-${safe}`);
+  if(!el) return;
+  el.classList.toggle("collapsed");
+  const chev = document.getElementById(`chev-${safe}`);
+  if(chev) chev.classList.toggle("open");
+}
+
+function toggleDiscussion(id){
+  const body = document.getElementById(`disc-body-${id}`);
+  const chev = document.getElementById(`disc-chev-${id}`);
+  if(!body) return;
+  body.classList.toggle("hidden");
+  if(chev) chev.textContent = body.classList.contains("hidden") ? "▶" : "▼";
+}
+
+/* Upload handling — saves to Supabase + localStorage fallback */
+async function processFile(file, loc, section, cardId, zoneId){
+  if(!file){ showToast("No file selected"); return; }
+  const isImage = file.type && file.type.startsWith("image/");
+  const allowed = isImage || file.type === "application/pdf" ||
+    file.type.includes("spreadsheet") || file.type.includes("excel") ||
+    file.name.endsWith(".xlsx") || file.name.endsWith(".csv") ||
+    file.type.includes("video") || file.name.endsWith(".mp4") || file.name.endsWith(".mov");
+  if(!allowed){ showToast("Unsupported file type"); return; }
+
+  showToast("Uploading to cloud...");
+  const ext = file.name.split(".").pop();
+  const path = `uploads/${loc}/${section}/${cardId}_${Date.now()}.${ext}`;
+
+  let publicURL = null;
+  try {
+    publicURL = await supabaseUpload(file, path);
+    // store the public URL + supabase path for deletion later
+    STATE.uploadedImages[imgKey(loc,section,cardId)] = publicURL;
+    STATE.uploadedPaths = STATE.uploadedPaths || {};
+    STATE.uploadedPaths[imgKey(loc,section,cardId)] = path;
+    saveState();
+    showToast("✅ Uploaded to cloud — visible to all users");
+  } catch(err) {
+    console.warn("Supabase upload failed, falling back to local:", err);
+    // Fallback: store locally
+    const reader = new FileReader();
+    reader.onload = ev => {
+      setImage(loc, section, cardId, ev.target.result);
+      showToast("⚠️ Saved locally only (cloud unavailable)");
+      refreshUploadZone(loc, section, cardId, zoneId, ev.target.result, file.name);
+    };
+    reader.readAsDataURL(file);
+    return;
+  }
+
+  refreshUploadZone(loc, section, cardId, zoneId, publicURL, file.name);
+}
+
+function refreshUploadZone(loc, section, cardId, zoneId, src, filename){
+  const zone = document.getElementById(zoneId);
+  const isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(filename||src);
+  const isPDF = /\.pdf$/i.test(filename||src);
+  const isVideo = /\.(mp4|mov|webm)$/i.test(filename||src);
+
+  if(zone){
+    zone.classList.add("has-content");
+    if(isImage){
+      zone.innerHTML = `<img src="${src}" class="upload-preview" alt="${escapeHtml(cardId)}" /><input type="file" accept="*/*" style="display:none"/>`;
+    } else if(isPDF){
+      zone.innerHTML = `<div style="text-align:center;padding:20px"><div style="font-size:40px">📄</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--accent);margin-top:8px">${escapeHtml(filename||"PDF FILE")}</div><a href="${src}" target="_blank" style="color:var(--accent);font-size:10px;font-family:var(--font-mono)">⬇ OPEN FILE</a></div><input type="file" accept="*/*" style="display:none"/>`;
+    } else if(isVideo){
+      zone.innerHTML = `<div style="text-align:center;padding:20px"><div style="font-size:40px">🎬</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--accent);margin-top:8px">${escapeHtml(filename||"VIDEO FILE")}</div><a href="${src}" target="_blank" style="color:var(--accent);font-size:10px;font-family:var(--font-mono)">▶ OPEN VIDEO</a></div><input type="file" accept="*/*" style="display:none"/>`;
+    } else {
+      zone.innerHTML = `<div style="text-align:center;padding:20px"><div style="font-size:40px">📁</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--accent);margin-top:8px">${escapeHtml(filename||"FILE")}</div><a href="${src}" target="_blank" style="color:var(--accent);font-size:10px;font-family:var(--font-mono)">⬇ DOWNLOAD</a></div><input type="file" accept="*/*" style="display:none"/>`;
+    }
+  }
+  const controls = document.querySelector(`[data-controls-for="${zoneId}"]`);
+  if(controls){
+    controls.innerHTML = `
+      ${isImage ? `<button class="card-btn" type="button" data-expand="${zoneId}" data-caption="${escapeHtml(cardId)}">⊞ EXPAND</button>` : ""}
+      <button class="card-btn danger" type="button" data-clear="${zoneId}">✕ CLEAR</button>
+      ${isImage ? `<button class="card-btn" type="button" data-compare="${zoneId}" data-label="${escapeHtml(cardId)}">⊟ COMPARE</button>` : ""}
+    `;
+  }
+}
+
+function removeUpload(loc, section, cardId, zoneId){
+  const key = imgKey(loc,section,cardId);
+  // Delete from Supabase if we have a path
+  if(STATE.uploadedPaths && STATE.uploadedPaths[key]){
+    supabaseDelete(STATE.uploadedPaths[key]).catch(()=>{});
+    delete STATE.uploadedPaths[key];
+  }
+  clearImage(loc, section, cardId);
+  const zone = document.getElementById(zoneId);
+  if(zone){
+    zone.classList.remove("has-content");
+    zone.innerHTML = `<div class="upload-icon">⬆</div>
+      <div class="upload-text"><strong>DRAG & DROP</strong><br/>or click to upload<br/>PNG · JPG · GIF · PDF · MP4 · XLSX</div>
+      <input type="file" accept="*/*" />`;
+  }
+  const controls = document.querySelector(`[data-controls-for="${zoneId}"]`);
+  if(controls) controls.innerHTML = "";
+  saveState();
+  showToast("File cleared");
+}
+
+/* Lightbox */
+function openLightbox(zoneId, caption){
+  const zone = document.getElementById(zoneId);
+  const img = zone ? zone.querySelector("img") : null;
+  if(!img) return;
+  document.getElementById("lightboxImg").src = img.src;
+  document.getElementById("lightboxCaption").textContent = caption || "";
+  document.getElementById("lightbox").classList.remove("hidden");
+}
+function closeLightbox(){ document.getElementById("lightbox").classList.add("hidden"); }
+
+/* Compare */
+function toggleCompare(loc, section, cardId, label){
+  const key = imgKey(loc,section,cardId);
+  const src = getImage(loc,section,cardId);
+  if(!src){ showToast("No image to compare"); return; }
+  if(STATE.compareImages[key]){ delete STATE.compareImages[key]; showToast("Removed from comparison"); }
+  else { STATE.compareImages[key] = {src,label,loc,section,cardId}; showToast("Added to comparison"); }
+}
+function openCompare(){
+  const items = Object.values(STATE.compareImages);
+  if(items.length < 2){ showToast("Add at least 2 images for comparison"); return; }
+  document.getElementById("compareGrid").innerHTML = items.map(it=>`
+    <div class="compare-item">
+      <div class="compare-item-title">${escapeHtml(it.label)} - ${escapeHtml(it.loc)}</div>
+      <img src="${it.src}" alt="${escapeHtml(it.label)}" />
+    </div>
+  `).join("");
+  document.getElementById("compareModal").classList.remove("hidden");
+}
+function closeCompare(){ document.getElementById("compareModal").classList.add("hidden"); }
+
+/* Search */
+function applySearch(){
+  const q = STATE.searchQuery;
+  if(!q){
+    document.querySelectorAll(".collapsible,.card").forEach(el=>el.style.display="");
+    return;
+  }
+  document.querySelectorAll(".collapsible").forEach(el=>{
+    const text = (el.textContent || "").toLowerCase();
+    el.style.display = text.includes(q) ? "" : "none";
+    if(text.includes(q)) el.classList.remove("collapsed");
+  });
+  document.querySelectorAll(".card").forEach(el=>{
+    const text = (el.textContent || "").toLowerCase();
+    el.style.display = text.includes(q) ? "" : "none";
+  });
+}
+function setSearch(q){
+  STATE.searchQuery = (q||"").trim().toLowerCase();
+  const clearBtn = document.getElementById("searchClear");
+  if(STATE.searchQuery) clearBtn.classList.add("visible"); else clearBtn.classList.remove("visible");
+  applySearch();
+}
+
+/* Location/Section/Cycle */
+function switchLocation(loc){
+  STATE.currentLocation = loc;
+  document.querySelectorAll(".loc-tab").forEach(el=>el.classList.toggle("active", el.dataset.loc===loc));
+  renderSection();
+  showToast(`Switched to ${loc}`);
+}
+function switchSection(section){
+  STATE.currentSection = section;
+  renderSectionNav();
+  renderSection();
+}
+function setCycle(cycle){
+  STATE.currentCycle = cycle;
+  showToast(`Forecast cycle set to ${cycle}`);
+  renderSection(); // refresh meta chips
+}
+
+/* ============================================================
+   PRODUCT VIEWER ENGINE
+   Multi-file tabs, zoom, fullscreen, download, GIF support
+============================================================ */
+
+// Registry: viewerId -> { tabs:[{label,src,type}], activeIdx, loc, section, cardBase }
+const VIEWERS = {};
+
+function fileExt(name){ return (name||"").split(".").pop().toLowerCase(); }
+function fileTypeFromName(name){
+  const e = fileExt(name);
+  if(["gif"].includes(e)) return "gif";
+  if(["png","jpg","jpeg","webp","bmp"].includes(e)) return "img";
+  if(["pdf"].includes(e)) return "pdf";
+  if(["mp4","mov","webm","avi"].includes(e)) return "video";
+  if(["xlsx","xls","csv"].includes(e)) return "sheet";
+  return "other";
+}
+function typeBadge(t){
+  if(t==="gif") return `<span class="product-info-badge badge-gif">GIF LOOP</span>`;
+  if(t==="img") return `<span class="product-info-badge badge-img">IMAGE</span>`;
+  if(t==="pdf") return `<span class="product-info-badge badge-pdf">PDF</span>`;
+  if(t==="video") return `<span class="product-info-badge badge-vid">VIDEO</span>`;
+  return "";
+}
+
+function buildProductViewer(viewerId, title, tabs, loc, section, cardBase, opts={}){
+  // tabs: [{label, src?, type?}] — src can be empty (upload zone)
+  VIEWERS[viewerId] = { tabs: tabs.map(t=>({...t, src: t.src||getImage(loc,section,`${cardBase}_${t.label}`)||null})), activeIdx:0, loc, section, cardBase };
+
+  return `
+  <div class="product-viewer" id="pv-${viewerId}">
+    <div class="product-viewer-header">
+      <span class="product-viewer-title">${escapeHtml(title)}</span>
+      <div class="product-viewer-controls">
+        <button class="pv-btn" onclick="pvUploadClick('${viewerId}')">⬆ UPLOAD</button>
+        <button class="pv-btn" onclick="pvFullscreen('${viewerId}')">⛶ FULLSCREEN</button>
+        <button class="pv-btn" onclick="pvDownload('${viewerId}')">⬇ DOWNLOAD</button>
+        <button class="pv-btn danger" onclick="pvClear('${viewerId}')">✕ CLEAR</button>
+      </div>
+    </div>
+    <div class="product-tabs" id="pvtabs-${viewerId}">
+      ${tabs.map((t,i)=>`<button class="product-tab ${i===0?"active":""}" onclick="pvSwitchTab('${viewerId}',${i})" id="pvtab-${viewerId}-${i}">${escapeHtml(t.label)}</button>`).join("")}
+    </div>
+    <div class="product-display" id="pvdisplay-${viewerId}"
+      ondragover="pvDragOver(event,'${viewerId}')" ondragleave="pvDragLeave(event,'${viewerId}')" ondrop="pvDrop(event,'${viewerId}')">
+      <div class="product-drop-overlay">⬆ DROP FILE TO UPLOAD</div>
+      <input type="file" id="pvfile-${viewerId}" accept="*/*" style="display:none" onchange="pvFileChosen('${viewerId}',this)"/>
+      <div id="pvinner-${viewerId}">${pvRenderInner(viewerId)}</div>
+    </div>
+    <div class="product-info-bar" id="pvinfo-${viewerId}">${pvRenderInfo(viewerId)}</div>
+    ${opts.showNotes!==false ? `
+    <div style="padding:12px;background:var(--bg-raised);border-top:1px solid var(--border-dim)">
+      ${buildAnalysisField(loc,section,`${cardBase}_notes`,opts.notePlaceholder||"Enter analyst discussion...")}
+    </div>` : ""}
+  </div>`;
+}
+
+function pvRenderInner(vid){
+  const v = VIEWERS[vid]; if(!v) return "";
+  const tab = v.tabs[v.activeIdx];
+  if(!tab || !tab.src){
+    return `<div class="product-empty">
+      <div class="upload-hint">⬆</div>
+      <div style="color:var(--text-dim)">NO PRODUCT LOADED</div>
+      <div style="color:var(--text-muted);font-size:9px;margin-top:4px">DRAG & DROP OR CLICK UPLOAD</div>
+    </div>`;
+  }
+  const t = tab.type || fileTypeFromName(tab.src);
+  if(t==="pdf") return `<div style="text-align:center;padding:30px"><div style="font-size:50px">📄</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--accent);margin-top:8px">${escapeHtml(tab.label)}</div><br/><a href="${tab.src}" target="_blank" class="pv-btn" style="display:inline-flex;margin-top:8px">⬇ OPEN PDF</a></div>`;
+  if(t==="video") return `<video src="${tab.src}" controls loop autoplay muted style="max-width:100%;max-height:500px" onclick="pvZoom('${vid}',this)"></video>`;
+  return `<img src="${tab.src}" style="max-width:100%;max-height:500px;object-fit:contain;cursor:zoom-in;display:block;border-radius:2px" onclick="pvZoom('${vid}',this)" alt="${escapeHtml(tab.label)}"/>`;
+}
+
+function pvRenderInfo(vid){
+  const v = VIEWERS[vid]; if(!v) return "";
+  const tab = v.tabs[v.activeIdx];
+  const t = tab && tab.src ? (tab.type||fileTypeFromName(tab.src)) : null;
+  const total = v.tabs.filter(t=>t.src).length;
+  return `<div class="product-info-left">
+    ${t ? typeBadge(t) : ""}
+    <span>${escapeHtml(tab ? tab.label : "—")}</span>
+    <span>${total}/${v.tabs.length} LOADED</span>
+  </div>
+  <span>${v.loc} // ${v.section.toUpperCase()}</span>`;
+}
+
+function pvRefresh(vid){
+  const inner = document.getElementById(`pvinner-${vid}`);
+  const info = document.getElementById(`pvinfo-${vid}`);
+  if(inner) inner.innerHTML = pvRenderInner(vid);
+  if(info) info.innerHTML = pvRenderInfo(vid);
+  // update tabs
+  const v = VIEWERS[vid];
+  if(v) v.tabs.forEach((t,i)=>{
+    const el = document.getElementById(`pvtab-${vid}-${i}`);
+    if(el){
+      el.classList.toggle("active", i===v.activeIdx);
+      el.classList.toggle("uploaded", !!t.src);
+    }
+  });
+}
+
+function pvSwitchTab(vid, idx){
+  const v = VIEWERS[vid]; if(!v) return;
+  v.activeIdx = idx;
+  pvRefresh(vid);
+}
+
+function pvUploadClick(vid){
+  const f = document.getElementById(`pvfile-${vid}`);
+  if(f) f.click();
+}
+
+function pvFileChosen(vid, input){
+  const file = input && input.files && input.files[0];
+  if(!file) return;
+  pvUploadFile(vid, file);
+}
+
+async function pvUploadFile(vid, file){
+  const v = VIEWERS[vid]; if(!v) return;
+  const tab = v.tabs[v.activeIdx];
+  if(!tab) return;
+  showToast(`⏳ Uploading ${tab.label}...`);
+  const ext = file.name.split(".").pop();
+  const path = `uploads/${v.loc}/${v.section}/${v.cardBase}_${tab.label}_${Date.now()}.${ext}`;
+  let src;
+  try {
+    src = await supabaseUpload(file, path);
+    STATE.uploadedPaths = STATE.uploadedPaths||{};
+    STATE.uploadedPaths[imgKey(v.loc,v.section,`${v.cardBase}_${tab.label}`)] = path;
+    showToast(`✅ ${tab.label} uploaded`);
+  } catch(e) {
+    // fallback local
+    src = await new Promise(res=>{ const r=new FileReader(); r.onload=ev=>res(ev.target.result); r.readAsDataURL(file); });
+    showToast(`⚠️ Saved locally`);
+  }
+  tab.src = src;
+  tab.type = fileTypeFromName(file.name);
+  setImage(v.loc, v.section, `${v.cardBase}_${tab.label}`, src);
+  pvRefresh(vid);
+}
+
+function pvDragOver(e, vid){ e.preventDefault(); document.getElementById(`pvdisplay-${vid}`).classList.add("drag-over"); }
+function pvDragLeave(e, vid){ document.getElementById(`pvdisplay-${vid}`).classList.remove("drag-over"); }
+function pvDrop(e, vid){ e.preventDefault(); document.getElementById(`pvdisplay-${vid}`).classList.remove("drag-over"); const f = e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) pvUploadFile(vid,f); }
+
+function pvZoom(vid, el){
+  const disp = document.getElementById(`pvdisplay-${vid}`);
+  if(disp) disp.classList.toggle("zoomed");
+}
+
+function pvDownload(vid){
+  const v = VIEWERS[vid]; if(!v) return;
+  const tab = v.tabs[v.activeIdx];
+  if(!tab||!tab.src){ showToast("No file to download"); return; }
+  const a = document.createElement("a");
+  a.href = tab.src; a.download = `${tab.label}.${fileExt(tab.src)||"jpg"}`; a.target="_blank";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  showToast(`⬇ Downloading ${tab.label}`);
+}
+
+function pvClear(vid){
+  const v = VIEWERS[vid]; if(!v) return;
+  const tab = v.tabs[v.activeIdx];
+  if(!tab||!tab.src){ showToast("Nothing to clear"); return; }
+  const key = imgKey(v.loc,v.section,`${v.cardBase}_${tab.label}`);
+  if(STATE.uploadedPaths&&STATE.uploadedPaths[key]) supabaseDelete(STATE.uploadedPaths[key]).catch(()=>{});
+  tab.src = null; tab.type = null;
+  clearImage(v.loc,v.section,`${v.cardBase}_${tab.label}`);
+  pvRefresh(vid);
+  showToast(`${tab.label} cleared`);
+}
+
+/* Fullscreen */
+let FS_VID = null, FS_ZOOM = 1;
+function pvFullscreen(vid){
+  const v = VIEWERS[vid]; if(!v) return;
+  FS_VID = vid; FS_ZOOM = 1;
+  const tab = v.tabs[v.activeIdx];
+  if(!tab||!tab.src){ showToast("No product to view"); return; }
+  fsShowTab(vid, v.activeIdx);
+  document.getElementById("fullscreenOverlay").classList.remove("hidden");
+  document.addEventListener("keydown", fsKeyHandler);
+}
+function closeFullscreen(){
+  document.getElementById("fullscreenOverlay").classList.add("hidden");
+  document.removeEventListener("keydown", fsKeyHandler);
+  FS_VID = null;
+}
+function fsKeyHandler(e){
+  if(e.key==="Escape") closeFullscreen();
+  if(e.key==="ArrowRight") fsNav(1);
+  if(e.key==="ArrowLeft") fsNav(-1);
+  if(e.key==="+") fsZoomIn();
+  if(e.key==="-") fsZoomOut();
+}
+function fsShowTab(vid, idx){
+  const v = VIEWERS[vid]; if(!v) return;
+  const tab = v.tabs[idx];
+  const img = document.getElementById("fsImg");
+  const vid2 = document.getElementById("fsVideo");
+  const title = document.getElementById("fsTitle");
+  const counter = document.getElementById("fsCounter");
+  const dlBtn = document.getElementById("fsDownload");
+  const t = tab&&tab.src ? (tab.type||fileTypeFromName(tab.src)) : null;
+  title.textContent = tab ? `${v.section.toUpperCase()} // ${tab.label}` : "—";
+  counter.textContent = `${idx+1} / ${v.tabs.length}`;
+  if(dlBtn) { dlBtn.onclick = ()=>pvDownload(vid); }
+  FS_ZOOM = 1; fsApplyZoom();
+  if(t==="video"){
+    img.style.display="none"; vid2.style.display="block";
+    vid2.src = tab.src;
+  } else if(tab&&tab.src){
+    vid2.style.display="none"; img.style.display="block";
+    img.src = tab.src; img.alt = tab?tab.label:"";
+  } else {
+    img.style.display="none"; vid2.style.display="none";
+  }
+}
+function fsNav(dir){
+  if(!FS_VID) return;
+  const v = VIEWERS[FS_VID];
+  let idx = v.activeIdx + dir;
+  if(idx < 0) idx = v.tabs.length-1;
+  if(idx >= v.tabs.length) idx = 0;
+  v.activeIdx = idx;
+  pvRefresh(FS_VID);
+  fsShowTab(FS_VID, idx);
+}
+function fsZoomIn(){ FS_ZOOM = Math.min(FS_ZOOM+0.25, 4); fsApplyZoom(); }
+function fsZoomOut(){ FS_ZOOM = Math.max(FS_ZOOM-0.25, 0.5); fsApplyZoom(); }
+function fsResetZoom(){ FS_ZOOM=1; fsApplyZoom(); }
+function fsApplyZoom(){ const w=document.getElementById("fsZoomWrap"); if(w) w.style.transform=`scale(${FS_ZOOM})`; }
+
+/* ============================================================
+   WIRE GLOBAL FILE INPUT FOR UPLOAD ZONES (legacy support)
+============================================================ */
+function fileIcon(name){
+  if(/\.(png|jpg|jpeg|gif|webp)$/i.test(name)) return "🖼️";
+  if(/\.pdf$/i.test(name)) return "📄";
+  if(/\.(mp4|mov|webm|avi)$/i.test(name)) return "🎬";
+  if(/\.(xlsx|xls|csv)$/i.test(name)) return "📊";
+  if(/\.(doc|docx)$/i.test(name)) return "📝";
+  return "📁";
+}
+function fileType(name){
+  if(/\.(png|jpg|jpeg|gif|webp)$/i.test(name)) return "image";
+  if(/\.pdf$/i.test(name)) return "pdf";
+  if(/\.(mp4|mov|webm|avi)$/i.test(name)) return "video";
+  if(/\.(xlsx|xls|csv)$/i.test(name)) return "sheet";
+  return "other";
+}
+function formatBytes(b){
+  if(!b) return "";
+  if(b < 1024) return `${b}B`;
+  if(b < 1048576) return `${(b/1024).toFixed(1)}KB`;
+  return `${(b/1048576).toFixed(1)}MB`;
+}
+
+async function loadLibraryFiles(loc){
+  const grid = document.getElementById("lib-file-grid");
+  if(!grid) return;
+  grid.innerHTML = `<div style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);grid-column:1/-1;text-align:center;padding:20px">⏳ Loading...</div>`;
+
+  const filter = document.getElementById("lib-filter");
+  const filterVal = filter ? filter.value : "all";
+
+  try {
+    const files = await supabaseList(`uploads/${loc}/`);
+    // Also load root uploads
+    const rootFiles = await supabaseList(`uploads/`);
+    const allFiles = [...files, ...rootFiles.filter(f => f.name && !f.name.includes("/"))];
+
+    const filtered = allFiles.filter(f => {
+      if(!f.name) return false;
+      if(filterVal === "all") return true;
+      return fileType(f.name) === filterVal;
+    });
+
+    if(filtered.length === 0){
+      grid.innerHTML = `<div style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);grid-column:1/-1;text-align:center;padding:30px">
+        No files found. Upload files above to share with all users.
+      </div>`;
+      return;
+    }
+
+    grid.innerHTML = filtered.map(f => {
+      const icon = fileIcon(f.name);
+      const type = fileType(f.name);
+      const size = formatBytes(f.metadata && f.metadata.size);
+      const shortName = f.name.length > 28 ? f.name.slice(0,25)+"..." : f.name;
+      const fullPath = f.name.startsWith("uploads/") ? f.name : `uploads/${loc}/${f.name}`;
+      const publicURL = `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_BUCKET}/${fullPath}`;
+      const isImg = type === "image";
+
+      return `
+        <div style="background:var(--bg-raised);border:1px solid var(--border-dim);border-radius:6px;overflow:hidden;transition:border .2s" 
+             onmouseover="this.style.borderColor='var(--border-bright)'" onmouseout="this.style.borderColor='var(--border-dim)'">
+          ${isImg
+            ? `<div style="height:100px;overflow:hidden;background:var(--bg-void)"><img src="${publicURL}" style="width:100%;height:100%;object-fit:cover"/></div>`
+            : `<div style="height:100px;display:flex;align-items:center;justify-content:center;background:var(--bg-base);font-size:40px">${icon}</div>`
+          }
+          <div style="padding:8px">
+            <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-primary);margin-bottom:2px;word-break:break-all">${escapeHtml(shortName)}</div>
+            ${size ? `<div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim)">${size}</div>` : ""}
+            <div style="display:flex;gap:4px;margin-top:6px">
+              <a href="${publicURL}" target="_blank" style="flex:1;text-align:center;background:var(--accent-glow);border:1px solid var(--accent-dim);color:var(--accent);font-family:var(--font-mono);font-size:9px;padding:4px;border-radius:3px;text-decoration:none">⬇ OPEN</a>
+              <button onclick="copyToClipboard('${publicURL}')" style="background:var(--bg-card);border:1px solid var(--border-mid);color:var(--text-dim);font-family:var(--font-mono);font-size:9px;padding:4px 6px;border-radius:3px;cursor:pointer" title="Copy link">🔗</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  } catch(err){
+    grid.innerHTML = `<div style="font-family:var(--font-mono);font-size:11px;color:var(--red);grid-column:1/-1;text-align:center;padding:20px">
+      ⚠️ Could not load files. Check Supabase connection.<br/><span style="color:var(--text-dim)">${err.message}</span>
+    </div>`;
+  }
+}
+
+function copyToClipboard(text){
+  navigator.clipboard.writeText(text).then(()=>showToast("Link copied!")).catch(()=>showToast("Could not copy"));
+}
+
+function wireFileLibrary(loc){
+  const dropZone = document.getElementById("lib-drop-zone");
+  const fileInput = document.getElementById("lib-file-input");
+  const refreshBtn = document.getElementById("lib-refresh-btn");
+  const filterSel = document.getElementById("lib-filter");
+
+  if(dropZone){
+    dropZone.addEventListener("click", ()=> fileInput && fileInput.click());
+    dropZone.addEventListener("dragover", e=>{ e.preventDefault(); dropZone.style.borderColor="var(--accent)"; });
+    dropZone.addEventListener("dragleave", ()=> dropZone.style.borderColor="var(--border-bright)");
+    dropZone.addEventListener("drop", e=>{ e.preventDefault(); dropZone.style.borderColor="var(--border-bright)"; handleLibraryFiles(e.dataTransfer.files, loc); });
+  }
+  if(fileInput) fileInput.addEventListener("change", ()=> handleLibraryFiles(fileInput.files, loc));
+  if(refreshBtn) refreshBtn.addEventListener("click", ()=> loadLibraryFiles(loc));
+  if(filterSel) filterSel.addEventListener("change", ()=> loadLibraryFiles(loc));
+
+  loadLibraryFiles(loc);
+}
+
+async function handleLibraryFiles(files, loc){
+  if(!files || files.length === 0) return;
+  const status = document.getElementById("lib-upload-status");
+  const category = document.getElementById("lib-category");
+  const tag = document.getElementById("lib-tag");
+  const cat = category ? category.value : "general";
+  const tagVal = tag ? tag.value.trim() : "";
+
+  for(let i = 0; i < files.length; i++){
+    const file = files[i];
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `uploads/${loc}/${cat}/${Date.now()}_${tagVal ? tagVal+"_" : ""}${safeName}`;
+    if(status) status.textContent = `⏳ Uploading ${i+1}/${files.length}: ${file.name}...`;
+    try {
+      await supabaseUpload(file, path);
+      if(status) status.textContent = `✅ ${i+1}/${files.length} uploaded: ${file.name}`;
+    } catch(err){
+      if(status) status.textContent = `❌ Failed: ${file.name} — ${err.message}`;
+    }
+  }
+  if(status) status.textContent = `✅ All ${files.length} file(s) uploaded to cloud!`;
+  setTimeout(()=> loadLibraryFiles(loc), 800);
+}
+
+
+/* Stoplight updates */
+function updateStoplightCell(loc, rowIdx, col, val){
+  const data = getStoplight(loc);
+  data[rowIdx][col] = val;
+  setStoplight(loc, data);
+}
+function updateStoplightThreatOrRemarks(loc, rowIdx, field, val){
+  const data = getStoplight(loc);
+  data[rowIdx][field] = val;
+  setStoplight(loc, data);
+}
+
+/* Timeline risk */
+function setDayRisk(loc, day, risk){
+  setTimelineRisk(loc, day, risk);
+  // UI update handled by re-render; this keeps it responsive even without rerender
+  document.querySelectorAll(`[data-risk-loc="${loc}"][data-risk-day="${day}"]`).forEach(btn=>{
+    btn.classList.toggle("on", btn.dataset.risk === risk);
+  });
+}
+
+/* ---------- Auth ---------- */
+function checkAuth(){
+  const session = sessionStorage.getItem(SESSION_KEY);
+  if(session){
+    STATE.loginUser = session;
+    showApp();
+  }
+}
+function attemptLogin(){
+  const user = document.getElementById("loginUser").value.trim();
+  const pass = document.getElementById("loginPass").value;
+  const errEl = document.getElementById("loginError");
+
+  if(VALID_CREDENTIALS[user] && VALID_CREDENTIALS[user] === pass){
+    STATE.loginUser = user;
+    sessionStorage.setItem(SESSION_KEY, user);
+    errEl.classList.add("hidden");
+    document.getElementById("loginOverlay").classList.add("hidden");
+    showApp();
+  }else{
+    errEl.classList.remove("hidden");
+    document.getElementById("loginPass").value = "";
+    document.getElementById("loginPass").focus();
+  }
+}
+function showApp(){
+  document.getElementById("loginOverlay").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  renderApp();
+}
+function logout(){
+  sessionStorage.removeItem(SESSION_KEY);
+  STATE.loginUser = null;
+  document.getElementById("app").classList.add("hidden");
+  document.getElementById("loginOverlay").classList.remove("hidden");
+  document.getElementById("loginUser").value = "";
+  document.getElementById("loginPass").value = "";
+}
+
+/* ---------- Event delegation ---------- */
+function wireGlobalEvents(){
+  // Login
+  document.getElementById("loginBtn").addEventListener("click", attemptLogin);
+  document.addEventListener("keydown", (e)=>{
+    if(e.key==="Enter" && !document.getElementById("loginOverlay").classList.contains("hidden")){
+      attemptLogin();
+    }
+    if(e.key==="Escape"){
+      if(!document.getElementById("lightbox").classList.contains("hidden")) closeLightbox();
+      if(!document.getElementById("compareModal").classList.contains("hidden")) closeCompare();
+    }
+  });
+
+  // Top bar
+  document.getElementById("logoutBtn").addEventListener("click", logout);
+  document.getElementById("cycleSelect").addEventListener("change", (e)=>setCycle(e.target.value));
+
+  // Search
+  const search = document.getElementById("globalSearch");
+  const clear = document.getElementById("searchClear");
+  search.addEventListener("input", ()=>setSearch(search.value));
+  clear.addEventListener("click", ()=>{
+    search.value=""; setSearch("");
+  });
+
+  // Lightbox & compare
+  document.getElementById("lightboxBackdrop").addEventListener("click", closeLightbox);
+  document.getElementById("lightboxClose").addEventListener("click", closeLightbox);
+  document.getElementById("compareBackdrop").addEventListener("click", closeCompare);
+  document.getElementById("compareClose").addEventListener("click", closeCompare);
+
+  // Delegated clicks inside main content
+  document.getElementById("mainContent").addEventListener("click", (e)=>{
+    const coll = e.target.closest(".collapsible-header");
+    if(coll){
+      toggleCollapsibleBySafeId(coll.dataset.coll);
+      return;
+    }
+    const disc = e.target.closest(".discussion-toggle");
+    if(disc){
+      toggleDiscussion(disc.dataset.disc);
+      return;
+    }
+    const btnExp = e.target.closest("[data-expand]");
+    if(btnExp){
+      openLightbox(btnExp.dataset.expand, btnExp.dataset.caption || "");
+      return;
+    }
+    const btnClear = e.target.closest("[data-clear]");
+    if(btnClear){
+      const zoneId = btnClear.dataset.clear;
+      const zone = document.getElementById(zoneId);
+      if(!zone) return;
+      removeUpload(zone.dataset.loc, zone.dataset.sec, zone.dataset.card, zoneId);
+      return;
+    }
+    const btnComp = e.target.closest("[data-compare]");
+    if(btnComp){
+      const zoneId = btnComp.dataset.compare;
+      const zone = document.getElementById(zoneId);
+      if(!zone) return;
+      toggleCompare(zone.dataset.loc, zone.dataset.sec, zone.dataset.card, btnComp.dataset.label || zone.dataset.card);
+      return;
+    }
+    const openCompareBtn = e.target.closest("#openCompareBtn");
+    if(openCompareBtn){
+      openCompare();
+      return;
+    }
+    const riskBtn = e.target.closest("[data-risk]");
+    if(riskBtn){
+      setDayRisk(riskBtn.dataset.riskLoc, riskBtn.dataset.riskDay, riskBtn.dataset.risk);
+      return;
+    }
+  });
+
+  // Delegated changes inside main content (notes, uploads, stoplight)
+  document.getElementById("mainContent").addEventListener("input", (e)=>{
+    // Notes
+    const noteEl = e.target.closest("[data-note-id]");
+    if(noteEl){
+      setNote(noteEl.dataset.noteLoc, noteEl.dataset.noteSec, noteEl.dataset.noteId, noteEl.value);
+      return;
+    }
+  });
+
+  document.getElementById("mainContent").addEventListener("change", (e)=>{
+    // file uploads
+    if(e.target && e.target.type==="file"){
+      const zone = e.target.closest(".upload-zone");
+      if(!zone) return;
+      const file = e.target.files && e.target.files[0];
+      processFile(file, zone.dataset.loc, zone.dataset.sec, zone.dataset.card, zone.id);
+      return;
+    }
+    // Stoplight selects
+    const stopSel = e.target.closest("select[data-stop-col]");
+    if(stopSel){
+      updateStoplightCell(stopSel.dataset.stopLoc, Number(stopSel.dataset.stopRow), stopSel.dataset.stopCol, stopSel.value);
+      stopSel.className = stopSel.value; // visual class
+      return;
+    }
+    // Stoplight threat/remarks inputs
+    const stopEdit = e.target.closest("[data-stop-edit]");
+    if(stopEdit){
+      const field = stopEdit.dataset.stopEdit === "threat" ? "threat" : "remarks";
+      updateStoplightThreatOrRemarks(stopEdit.dataset.stopLoc, Number(stopEdit.dataset.stopRow), field, stopEdit.value);
+      return;
+    }
+  });
+
+  // Drag and drop for uploads (delegated)
+  document.getElementById("mainContent").addEventListener("dragover", (e)=>{
+    const zone = e.target.closest(".upload-zone");
+    if(zone){ e.preventDefault(); zone.classList.add("drag-over"); }
+  });
+  document.getElementById("mainContent").addEventListener("dragleave", (e)=>{
+    const zone = e.target.closest(".upload-zone");
+    if(zone) zone.classList.remove("drag-over");
+  });
+  document.getElementById("mainContent").addEventListener("drop", (e)=>{
+    const zone = e.target.closest(".upload-zone");
+    if(!zone) return;
+    e.preventDefault();
+    zone.classList.remove("drag-over");
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    processFile(file, zone.dataset.loc, zone.dataset.sec, zone.dataset.card, zone.id);
+  });
+
+  // Section nav
+  document.getElementById("sectionNav").addEventListener("click", (e)=>{
+    const btn = e.target.closest(".nav-item");
+    if(!btn) return;
+    switchSection(btn.dataset.section);
+  });
+
+  // AOR add
+  document.getElementById("addAorBtn").addEventListener("click", ()=>{
+    const name = prompt("Enter ICAO code for new AOR location (e.g. MPTO):");
+    if(!name) return;
+    const code = name.trim().toUpperCase().slice(0,4);
+    if(!code) return;
+    if(STATE.locations.includes(code)){ showToast(`${code} already exists`); return; }
+    STATE.locations.push(code);
+    saveState();
+    renderLocationTabs();
+    switchLocation(code);
+    showToast(`AOR ${code} added`);
+  });
+
+  // Location tabs click (already wired per button)
+}
+
+/* ---------- App init ---------- */
+function renderApp(){
+  renderLocationTabs();
+  renderSectionNav();
+  renderSection();
+}
+
+window.addEventListener("DOMContentLoaded", ()=>{
+  loadState();
+  wireGlobalEvents();
+  startClock();
+  checkAuth();
+});
+</script>
+</body>
+</html>
