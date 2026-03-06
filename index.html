@@ -2109,20 +2109,16 @@ async function syncFromSupabase(){
           const files = await supabaseListFolder(prefix);
           for(const f of files){
             if(!f.name || f.name.endsWith("/")) continue;
-            const filename = f.name; // e.g. "sat||VIS__11Z-18Z.gif"
+            const filename = f.name;
             const nameNoExt = filename.replace(/\.[^.]+$/, "");
-
-            // Decode: split on || to get cardBase and tabLabel, restore spaces
             if(!nameNoExt.includes("--")) continue;
             const parts = nameNoExt.split("--");
             const cardBase = parts[0].replace(/__/g," ");
             const tabLabel = parts.slice(1).join("--").replace(/__/g," ");
             const exactKey = `${cardBase}_${tabLabel}`;
-
             const fullPath = `${prefix}${filename}`;
             const publicURL = `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_BUCKET}/${fullPath}`;
             const key = imgKey(loc, section, exactKey);
-
             STATE.uploadedImages[key] = publicURL;
             count++;
           }
@@ -2130,13 +2126,15 @@ async function syncFromSupabase(){
       }
     }
 
-    saveState();
     if(count > 0){
-      renderSection();
       showToast(`✅ Synced ${count} file(s) from cloud`);
     } else {
       showToast("✅ Cloud in sync");
     }
+
+    // Re-render AFTER all images are in STATE so buildProductViewer hydrates correctly
+    renderApp();
+
   } catch(err){
     console.error("Supabase sync failed:", err);
     showToast("⚠️ Cloud sync failed — working offline");
