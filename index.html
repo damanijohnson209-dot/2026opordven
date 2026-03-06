@@ -847,7 +847,7 @@ function buildObservations(loc){
 
   const sfcVid = safeId(`sfc-${loc}`);
   const sfcContent = buildProductViewer(sfcVid, "SURFACE OBSERVATIONS / METAR",
-    [{label:"SFC ANALYSIS"},{label:"METAR DATA"}], loc, S, "surface",
+    [{label:"METAR DATA"}], loc, S, "surface",
     {notePlaceholder:"Discuss METAR/SYNOP analysis, surface pressure patterns, fronts..."});
 
   const skewVid = safeId(`skew-${loc}`);
@@ -1404,7 +1404,18 @@ function pvRenderInner(vid){
       </div>
     </div>`;
   if(t==="video") return `<video src="${tab.src}" controls loop autoplay muted style="max-width:100%;max-height:500px" onclick="pvZoom('${vid}',this)"></video>`;
-  return `<img src="${tab.src}" style="max-width:100%;max-height:500px;object-fit:contain;cursor:zoom-in;display:block;border-radius:2px" onclick="pvZoom('${vid}',this)" alt="${escapeHtml(tab.label)}"/>`;
+  return `
+    <div id="panwrap-${vid}" style="overflow:hidden;width:100%;max-height:500px;cursor:grab;position:relative;user-select:none"
+      onmousedown="panStart(event,'${vid}')" onmousemove="panMove(event,'${vid}')" onmouseup="panEnd('${vid}')" onmouseleave="panEnd('${vid}')"
+      ontouchstart="panTouchStart(event,'${vid}')" ontouchmove="panTouchMove(event,'${vid}')" ontouchend="panEnd('${vid}')">
+      <img id="panimg-${vid}" src="${tab.src}" style="max-width:100%;display:block;border-radius:2px;transform:translate(0px,0px);transition:none;pointer-events:none" alt="${escapeHtml(tab.label)}"/>
+      <div style="position:absolute;top:6px;right:6px;display:flex;gap:4px">
+        <button class="pv-btn" style="padding:2px 6px;font-size:10px" onclick="panZoomIn('${vid}')">＋</button>
+        <button class="pv-btn" style="padding:2px 6px;font-size:10px" onclick="panZoomOut('${vid}')">－</button>
+        <button class="pv-btn" style="padding:2px 6px;font-size:10px" onclick="panReset('${vid}')">⊡</button>
+        <button class="pv-btn" style="padding:2px 6px;font-size:10px" onclick="pvFullscreen('${vid}')">⛶</button>
+      </div>
+    </div>`;
 }
 
 function pvRenderInfo(vid){
@@ -1507,6 +1518,7 @@ function pvRefresh(vid){
 function pvSwitchTab(vid, idx){
   const v = VIEWERS[vid]; if(!v) return;
   v.activeIdx = idx;
+  if(PAN[vid]) PAN[vid] = {x:0,y:0,scale:1,dragging:false,startX:0,startY:0};
   pvRefresh(vid);
 }
 
@@ -1713,10 +1725,51 @@ function pvDrop(e, vid){
   }
 }
 
-function pvZoom(vid, el){
-  const disp = document.getElementById(`pvdisplay-${vid}`);
-  if(disp) disp.classList.toggle("zoomed");
+/* ============================================================
+   PAN / ZOOM ENGINE — inline image viewer
+============================================================ */
+const PAN = {}; // vid -> {x, y, scale, dragging, startX, startY, lastX, lastY}
+
+function panState(vid){
+  if(!PAN[vid]) PAN[vid] = {x:0, y:0, scale:1, dragging:false, startX:0, startY:0};
+  return PAN[vid];
 }
+function panApply(vid){
+  const img = document.getElementById(`panimg-${vid}`);
+  const p = panState(vid);
+  if(img) img.style.transform = `translate(${p.x}px,${p.y}px) scale(${p.scale})`;
+}
+function panStart(e, vid){
+  const p = panState(vid);
+  p.dragging = true; p.startX = e.clientX - p.x; p.startY = e.clientY - p.y;
+  const wrap = document.getElementById(`panwrap-${vid}`);
+  if(wrap) wrap.style.cursor = "grabbing";
+}
+function panMove(e, vid){
+  const p = panState(vid); if(!p.dragging) return;
+  p.x = e.clientX - p.startX; p.y = e.clientY - p.startY;
+  panApply(vid);
+}
+function panEnd(vid){
+  const p = panState(vid); p.dragging = false;
+  const wrap = document.getElementById(`panwrap-${vid}`);
+  if(wrap) wrap.style.cursor = "grab";
+}
+function panTouchStart(e, vid){
+  const t = e.touches[0];
+  const p = panState(vid);
+  p.dragging = true; p.startX = t.clientX - p.x; p.startY = t.clientY - p.y;
+}
+function panTouchMove(e, vid){
+  e.preventDefault();
+  const t = e.touches[0];
+  const p = panState(vid); if(!p.dragging) return;
+  p.x = t.clientX - p.startX; p.y = t.clientY - p.startY;
+  panApply(vid);
+}
+function panZoomIn(vid){ const p=panState(vid); p.scale=Math.min(p.scale+0.25,5); panApply(vid); }
+function panZoomOut(vid){ const p=panState(vid); p.scale=Math.max(p.scale-0.25,0.5); panApply(vid); }
+function panReset(vid){ PAN[vid]={x:0,y:0,scale:1,dragging:false,startX:0,startY:0}; panApply(vid); }
 
 async function pvDownload(vid){
   const v = VIEWERS[vid]; if(!v) return;
