@@ -1450,8 +1450,9 @@ async function pvUploadFile(vid, file){
 
   const ext = file.name.split(".").pop().toLowerCase();
   const exactKey = `${v.cardBase}_${tab.label}`;
-  const encodedName = `${v.cardBase}--${tab.label}`.replace(/ /g,"__");
+  const encodedName = `${v.cardBase}--${tab.label}`.replace(/ /g,"__").replace(/[^a-zA-Z0-9._\-]/g,"");
   const safePath = `uploads/${v.loc}/${v.section}/${encodedName}.${ext}`;
+  uploadLog(`📤 Trying path: ${safePath}`);
 
   let src = null;
   const MAX_ATTEMPTS = 5;
@@ -2112,10 +2113,10 @@ async function syncFromSupabase(){
             const nameNoExt = filename.replace(/\.[^.]+$/, "");
 
             // Decode: split on || to get cardBase and tabLabel, restore spaces
-            if(!nameNoExt.includes("--")) continue; // skip old-format files
+            if(!nameNoExt.includes("--")) continue;
             const parts = nameNoExt.split("--");
             const cardBase = parts[0].replace(/__/g," ");
-            const tabLabel = parts[1].replace(/__/g," ");
+            const tabLabel = parts.slice(1).join("--").replace(/__/g," ");
             const exactKey = `${cardBase}_${tabLabel}`;
 
             const fullPath = `${prefix}${filename}`;
