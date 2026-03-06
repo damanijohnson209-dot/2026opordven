@@ -566,7 +566,7 @@ async function supabaseUpload(file, path){
 
   try {
     const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${SUPABASE_BUCKET}/${safePath}`, {
-      method: "POST",
+      method: "PUT",
       headers: {
         "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
         "Content-Type": contentType,
