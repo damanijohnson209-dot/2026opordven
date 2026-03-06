@@ -867,16 +867,23 @@ function buildObservations(loc){
     ctTabs, "SHARED", S, "contrails",
     {notePlaceholder:"Discuss contrail persistence, tropopause height, atmospheric moisture..."});
 
+  const solVid = safeId(`solar-SHARED`);
+  const solContent = buildProductViewer(solVid, "SOLAR / LUNAR DATA",
+    [{label:"24 FEB"},{label:"25 FEB"}],
+    "SHARED", S, "solar",
+    {notePlaceholder:"Sunrise/sunset, moonrise/moonset, illumination, civil twilight, NVG planning..."});
+
   return buildPageHeader("OBSERVATIONS", `CURRENT CONDITIONS & LOOP ANALYSIS - ${loc}`, [
     {label:`ICAO: ${loc}`, active:true},
     {label:"SECTION: OBS"},
     {label:`CYCLE: ${STATE.currentCycle}`},
   ]) + [
-    buildCollapsible(`shared_obs_sat`, "01","SATELLITE LOOPS ⬡ SHARED",  "SAT/GIF",  satContent),
-    buildCollapsible(`${loc}_obs_sfc`, "02","SURFACE OBSERVATIONS",    "METAR",    sfcContent),
-    buildCollapsible(`${loc}_obs_skew`,"03","SKEW-T SOUNDINGS",        "SOUNDING", skewContent),
-    buildCollapsible(`${loc}_obs_met`, "04","METEOGRAM",               "METGM",    metContent),
-    buildCollapsible(`shared_obs_ct`,  "05","CONTRAIL PRODUCTS ⬡ SHARED", "CONTRAILS", ctContent),
+    buildCollapsible(`shared_obs_sat`,   "01", "SATELLITE LOOPS ⬡ SHARED",      "SAT/GIF",   satContent),
+    buildCollapsible(`${loc}_obs_sfc`,   "02", "SURFACE OBSERVATIONS",           "METAR",     sfcContent),
+    buildCollapsible(`${loc}_obs_skew`,  "03", "SKEW-T SOUNDINGS",               "SOUNDING",  skewContent),
+    buildCollapsible(`${loc}_obs_met`,   "04", "METEOGRAM",                      "METGM",     metContent),
+    buildCollapsible(`shared_obs_ct`,    "05", "CONTRAIL PRODUCTS ⬡ SHARED",     "CONTRAILS", ctContent),
+    buildCollapsible(`shared_obs_solar`, "06", "SOLAR / LUNAR DATA ⬡ SHARED",    "SOL/LUN",   solContent),
   ].join("");
 }
 
@@ -907,7 +914,7 @@ function buildUpperAir(){
 
 function buildModelGuidance(){
   const S="model-guidance";
-  const cycles = ["00Z","02Z","04Z","06Z","08Z","10Z","12Z"];
+  const cycles = ["00Z","02Z","04Z","08Z","10Z"];
   const levels = [
     {key:"300", label:"300 MB"},
     {key:"500", label:"500 MB"},
