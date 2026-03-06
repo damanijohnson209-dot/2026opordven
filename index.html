@@ -266,6 +266,9 @@ html,body{height:100%;background:var(--bg-void);color:var(--text-primary);font-f
 .asset-table td{border:1px solid var(--border-dim);padding:0}
 .asset-table td textarea{width:100%;background:transparent;border:none;outline:none;color:var(--text-primary);font-family:var(--font-mono);font-size:11px;padding:8px 10px;resize:none;min-height:60px;line-height:1.5}
 
+.search-suggestion{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border-dim);transition:background 0.1s}
+.search-suggestion:hover{background:var(--bg-hover)}
+.search-suggestion:last-child{border-bottom:none}
 .sort-modal{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center}
 .sort-modal.hidden{display:none}
 .sort-modal-box{background:var(--bg-card);border:1px solid var(--border-mid);border-radius:6px;width:min(700px,95vw);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
@@ -407,10 +410,16 @@ html,body{height:100%;background:var(--bg-void);color:var(--text-primary);font-f
     </div>
 
     <div class="header-center">
-      <div class="search-wrap">
+      <div class="search-wrap" style="position:relative">
         <span class="search-icon">⌕</span>
-        <input type="text" id="globalSearch" class="search-input" placeholder="SEARCH SECTIONS, CONTENT..." />
-        <span class="search-clear" id="searchClear">✕</span>
+        <input type="text" id="globalSearch" class="search-input" placeholder="SEARCH SECTIONS, PRODUCTS, LOCATIONS..." 
+          autocomplete="off"
+          oninput="setSearch(this.value); buildSuggestions(this.value)"
+          onfocus="buildSuggestions(this.value)"
+          onblur="setTimeout(()=>hideSuggestions(),200)"
+          onkeydown="searchKeyNav(event)"/>
+        <span class="search-clear" id="searchClear" onclick="clearSearch()">✕</span>
+        <div id="searchSuggestions" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:5000;background:var(--bg-card);border:1px solid var(--border-mid);border-top:none;border-radius:0 0 4px 4px;max-height:320px;overflow-y:auto"></div>
       </div>
     </div>
 
@@ -539,7 +548,7 @@ const STATE = {
 
 const LS_KEY = "var_opws_state_v2";
 const SESSION_KEY = "var_opws_user_v2";
-const VALID_CREDENTIALS = { demo: "demo1234", admin: "opws2025", analyst: "wx4ops!" };
+const VALID_CREDENTIALS = { demo: "demo1234", LeSj: "Lebron23", analyst: "wx4ops!" };
 
 /* ============================================================
    SUPABASE CONFIG
@@ -1051,7 +1060,7 @@ function buildFileLibrary(loc){
           <option value="weather">WEATHER PRODUCTS</option>
           <option value="imagery">IMAGERY</option>
           <option value="intel">INTEL</option>
-          <option value="admin">ADMIN</option>
+          <option value="LeSj">ADMIN</option>
         </select>
         <input id="lib-tag" placeholder="Optional tag/label..." style="background:var(--bg-raised);border:1px solid var(--border-mid);color:var(--text-primary);font-family:var(--font-mono);font-size:11px;padding:6px 10px;border-radius:var(--radius);flex:1"/>
       </div>
@@ -1271,7 +1280,196 @@ function openCompare(){
 }
 function closeCompare(){ document.getElementById("compareModal").classList.add("hidden"); }
 
-/* Search */
+/* ============================================================
+   SMART SEARCH ENGINE
+============================================================ */
+
+// All searchable items — each has a label, keywords, action to navigate there
+function buildSearchIndex(){
+  const idx = [];
+  const sections = [
+    {id:"climatology",    label:"Climatology",         badge:"CLIMO"},
+    {id:"observations",   label:"Observations",         badge:"OBS"},
+    {id:"upper-air",      label:"Upper Air Analysis",   badge:"UPPER AIR"},
+    {id:"model-guidance", label:"Model Guidance",       badge:"MODEL"},
+    {id:"integrated",     label:"Integrated Assessment",badge:"INTEGRATED"},
+    {id:"file-library",   label:"File Library",         badge:"FILES"},
+  ];
+  const sharedSections = ["upper-air","model-guidance","integrated"];
+
+  // Locations
+  STATE.locations.forEach(loc=>{
+    idx.push({
+      label: loc,
+      sub: `Switch to ${loc} location`,
+      keywords: [loc.toLowerCase(), loc==="TJRV"?"puerto rico":"venezuela", loc==="TJRV"?"tjrv":"svmi"],
+      action: ()=>{ switchLocation(loc); },
+      icon:"📍", loc
+    });
+  });
+
+  // Sections — for each location
+  STATE.locations.forEach(loc=>{
+    sections.forEach(sec=>{
+      const isShared = sharedSections.includes(sec.id);
+      idx.push({
+        label: sec.label,
+        sub: isShared ? "⬡ SHARED — all locations" : `${loc} → ${sec.badge}`,
+        keywords: [sec.id, sec.label.toLowerCase(), sec.badge.toLowerCase(), loc.toLowerCase(), isShared?"shared":""],
+        action: ()=>{
+          if(!isShared) switchLocation(loc);
+          switchSection(sec.id);
+          hideSuggestions();
+        },
+        icon: "📂", loc: isShared ? "SHARED" : loc
+      });
+    });
+  });
+
+  // Products within sections
+  const products = [
+    {sec:"observations",   loc:null,  label:"Satellite Loops",       keywords:["satellite","vis","ir","wv","loop","gif"]},
+    {sec:"observations",   loc:null,  label:"Skew-T Soundings",      keywords:["skewt","skew-t","sounding","thermodynamic","instability"]},
+    {sec:"observations",   loc:null,  label:"Meteogram",             keywords:["meteogram","metgm","qpf","wind"]},
+    {sec:"observations",   loc:null,  label:"Surface Observations",  keywords:["surface","metar","synop"]},
+    {sec:"observations",   loc:null,  label:"Contrail Products",     keywords:["contrail","trails","tropopause"]},
+    {sec:"observations",   loc:null,  label:"Solar / Lunar Data",    keywords:["solar","lunar","sunrise","sunset","moonrise","nvg"]},
+    {sec:"climatology",    loc:null,  label:"Climatology Summary",   keywords:["climatology","climo","historical","14ws"]},
+    {sec:"climatology",    loc:null,  label:"Topography Map",        keywords:["topography","topo","terrain","elevation"]},
+    {sec:"upper-air",      loc:"SHARED", label:"300 MB Analysis",    keywords:["300","jet stream","divergence"]},
+    {sec:"upper-air",      loc:"SHARED", label:"500 MB Analysis",    keywords:["500","trough","ridge","vorticity"]},
+    {sec:"upper-air",      loc:"SHARED", label:"700 MB Analysis",    keywords:["700","moisture","thermal"]},
+    {sec:"upper-air",      loc:"SHARED", label:"850 MB Analysis",    keywords:["850","low level jet","warm advection"]},
+    {sec:"upper-air",      loc:"SHARED", label:"Surface Analysis",   keywords:["surface","fronts","convergence"]},
+    {sec:"model-guidance", loc:"SHARED", label:"Model Charts",       keywords:["model","00z","02z","04z","06z","08z","10z","guidance"]},
+    {sec:"integrated",     loc:"SHARED", label:"OPORD",              keywords:["opord","absolute resolve","operation"]},
+    {sec:"integrated",     loc:"SHARED", label:"Scenario",           keywords:["scenario","branches","sequels"]},
+    {sec:"integrated",     loc:"SHARED", label:"Weather Impacts",    keywords:["impacts","160th","f-35","platform","go no-go"]},
+  ];
+
+  products.forEach(p=>{
+    const locs = p.loc === "SHARED" ? [null] : STATE.locations;
+    locs.forEach(loc=>{
+      idx.push({
+        label: p.label,
+        sub: p.loc==="SHARED" ? `⬡ SHARED — ${p.sec}` : `${loc} → ${p.sec}`,
+        keywords: [...p.keywords, p.label.toLowerCase(), p.sec, loc ? loc.toLowerCase() : "shared"],
+        action: ()=>{
+          if(loc) switchLocation(loc);
+          switchSection(p.sec);
+          hideSuggestions();
+          // Scroll to matching collapsible after render
+          setTimeout(()=>{
+            const all = document.querySelectorAll(".collapsible-header");
+            for(const el of all){
+              if(el.textContent.toLowerCase().includes(p.label.toLowerCase())){
+                el.closest(".collapsible")?.classList.remove("collapsed");
+                el.scrollIntoView({behavior:"smooth",block:"center"});
+                break;
+              }
+            }
+          }, 200);
+        },
+        icon:"📋", loc: p.loc==="SHARED" ? "SHARED" : loc
+      });
+    });
+  });
+
+  return idx;
+}
+
+let SEARCH_IDX = null;
+let SUGGESTION_ACTIVE = -1;
+
+function buildSuggestions(q){
+  const box = document.getElementById("searchSuggestions");
+  if(!box) return;
+  q = (q||"").trim().toLowerCase();
+  if(!q){ hideSuggestions(); return; }
+
+  if(!SEARCH_IDX) SEARCH_IDX = buildSearchIndex();
+
+  // Score each item
+  const scored = SEARCH_IDX.map(item=>{
+    let score = 0;
+    for(const kw of item.keywords){
+      if(!kw) continue;
+      if(kw === q) score += 10;
+      else if(kw.startsWith(q)) score += 6;
+      else if(kw.includes(q)) score += 3;
+    }
+    if(item.label.toLowerCase().includes(q)) score += 4;
+    return {item, score};
+  }).filter(s=>s.score>0).sort((a,b)=>b.score-a.score);
+
+  // Deduplicate by label+loc
+  const seen = new Set();
+  const results = [];
+  for(const {item} of scored){
+    const key = `${item.label}|${item.loc}`;
+    if(!seen.has(key)){ seen.add(key); results.push(item); }
+    if(results.length >= 10) break;
+  }
+
+  if(!results.length){ hideSuggestions(); return; }
+
+  SUGGESTION_ACTIVE = -1;
+  box.innerHTML = results.map((item,i)=>`
+    <div class="search-suggestion" data-idx="${i}"
+      onmousedown="selectSuggestion(${i})"
+      onmouseover="SUGGESTION_ACTIVE=${i};highlightSuggestion()">
+      <span style="font-size:14px">${item.icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(item.label)}</div>
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim)">${escapeHtml(item.sub||"")}</div>
+      </div>
+      ${item.loc && item.loc!=="SHARED" ? `<span style="font-family:var(--font-mono);font-size:9px;color:var(--accent);background:var(--accent-glow);padding:1px 6px;border-radius:2px">${escapeHtml(item.loc)}</span>` : item.loc==="SHARED" ? `<span style="font-family:var(--font-mono);font-size:9px;color:#aaa;background:rgba(255,255,255,0.05);padding:1px 6px;border-radius:2px">SHARED</span>` : ""}
+    </div>`).join("");
+
+  // Store results for keyboard nav
+  box._results = results;
+  box.style.display = "block";
+}
+
+function hideSuggestions(){
+  const box = document.getElementById("searchSuggestions");
+  if(box) box.style.display = "none";
+  SUGGESTION_ACTIVE = -1;
+}
+
+function selectSuggestion(i){
+  const box = document.getElementById("searchSuggestions");
+  if(!box || !box._results) return;
+  const item = box._results[i];
+  if(!item) return;
+  document.getElementById("globalSearch").value = item.label;
+  setSearch(item.label);
+  item.action();
+  hideSuggestions();
+}
+
+function highlightSuggestion(){
+  document.querySelectorAll(".search-suggestion").forEach((el,i)=>{
+    el.style.background = i===SUGGESTION_ACTIVE ? "var(--bg-hover)" : "";
+  });
+}
+
+function searchKeyNav(e){
+  const box = document.getElementById("searchSuggestions");
+  if(!box || box.style.display==="none") return;
+  const total = box._results ? box._results.length : 0;
+  if(e.key==="ArrowDown"){ e.preventDefault(); SUGGESTION_ACTIVE=Math.min(SUGGESTION_ACTIVE+1,total-1); highlightSuggestion(); }
+  else if(e.key==="ArrowUp"){ e.preventDefault(); SUGGESTION_ACTIVE=Math.max(SUGGESTION_ACTIVE-1,0); highlightSuggestion(); }
+  else if(e.key==="Enter"){ e.preventDefault(); if(SUGGESTION_ACTIVE>=0) selectSuggestion(SUGGESTION_ACTIVE); }
+  else if(e.key==="Escape"){ hideSuggestions(); }
+}
+
+function clearSearch(){
+  document.getElementById("globalSearch").value="";
+  setSearch(""); hideSuggestions();
+  SEARCH_IDX = null; // rebuild on next search
+}
+
 function applySearch(){
   const q = STATE.searchQuery;
   if(!q){
@@ -1355,8 +1553,8 @@ function buildProductViewer(viewerId, title, tabs, loc, section, cardBase, opts=
         <button class="pv-btn" onclick="pvUploadClick('${viewerId}')">⬆ UPLOAD</button>
         <button class="pv-btn" style="background:var(--accent-glow);border-color:var(--accent)" onclick="pvMassUploadClick('${viewerId}')">⬆⬆ MASS UPLOAD</button>
         <button class="pv-btn" id="pvreorder-btn-${viewerId}" onclick="pvToggleReorder('${viewerId}')">⇄ REORDER</button>
-        <button class="pv-btn" onclick="pvShift('${viewerId}',-1)" title="Shift all images one tab left">◀ SHIFT</button>
-        <button class="pv-btn" onclick="pvShift('${viewerId}',1)" title="Shift all images one tab right">SHIFT ▶</button>
+        <button class="pv-btn" onclick="pvShift('${viewerId}',-1)" title="Shift all images one tab left" style="${STATE.loginUser==='LeSj'?'':'display:none'}">◀ SHIFT</button>
+        <button class="pv-btn" onclick="pvShift('${viewerId}',1)" title="Shift all images one tab right" style="${STATE.loginUser==='LeSj'?'':'display:none'}">SHIFT ▶</button>
         <button class="pv-btn" onclick="pvFullscreen('${viewerId}')">⛶ FULLSCREEN</button>
         <button class="pv-btn" onclick="pvDownload('${viewerId}')">⬇ DOWNLOAD</button>
         <button class="pv-btn danger" onclick="pvClear('${viewerId}')">✕ CLEAR</button>
@@ -2147,14 +2345,6 @@ function wireGlobalEvents(){
   // Top bar
   document.getElementById("logoutBtn").addEventListener("click", logout);
   document.getElementById("cycleSelect").addEventListener("change", (e)=>setCycle(e.target.value));
-
-  // Search
-  const search = document.getElementById("globalSearch");
-  const clear = document.getElementById("searchClear");
-  search.addEventListener("input", ()=>setSearch(search.value));
-  clear.addEventListener("click", ()=>{
-    search.value=""; setSearch("");
-  });
 
   // Lightbox & compare
   document.getElementById("lightboxBackdrop").addEventListener("click", closeLightbox);
