@@ -1343,6 +1343,9 @@ function buildProductViewer(viewerId, title, tabs, loc, section, cardBase, opts=
       <div class="product-viewer-controls">
         <button class="pv-btn" onclick="pvUploadClick('${viewerId}')">⬆ UPLOAD</button>
         <button class="pv-btn" style="background:var(--accent-glow);border-color:var(--accent)" onclick="pvMassUploadClick('${viewerId}')">⬆⬆ MASS UPLOAD</button>
+        <button class="pv-btn" id="pvreorder-btn-${viewerId}" onclick="pvToggleReorder('${viewerId}')">⇄ REORDER</button>
+        <button class="pv-btn" onclick="pvShift('${viewerId}',-1)" title="Shift all images one tab left">◀ SHIFT</button>
+        <button class="pv-btn" onclick="pvShift('${viewerId}',1)" title="Shift all images one tab right">SHIFT ▶</button>
         <button class="pv-btn" onclick="pvFullscreen('${viewerId}')">⛶ FULLSCREEN</button>
         <button class="pv-btn" onclick="pvDownload('${viewerId}')">⬇ DOWNLOAD</button>
         <button class="pv-btn danger" onclick="pvClear('${viewerId}')">✕ CLEAR</button>
@@ -1410,20 +1413,88 @@ function pvRenderInfo(vid){
   <span>${v.loc} // ${v.section.toUpperCase()}</span>`;
 }
 
+const PV_REORDER = {}; // vid -> bool
+let TAB_DRAG_VID = null, TAB_DRAG_IDX = null;
+
+function pvShift(vid, dir){
+  const v = VIEWERS[vid]; if(!v) return;
+  // Extract just the srcs and types in current order
+  const srcs  = v.tabs.map(t=>t.src);
+  const types = v.tabs.map(t=>t.type);
+  const n = srcs.length;
+
+  // Shift all srcs by dir (-1=left, +1=right), wrap around
+  const newSrcs  = Array(n).fill(null);
+  const newTypes = Array(n).fill(null);
+  for(let i=0; i<n; i++){
+    const newIdx = ((i + dir) % n + n) % n;
+    newSrcs[newIdx]  = srcs[i];
+    newTypes[newIdx] = types[i];
+  }
+
+  // Apply back to tabs and update STATE
+  v.tabs.forEach((t,i)=>{
+    t.src  = newSrcs[i];
+    t.type = newTypes[i];
+    if(t.src) setImage(v.loc, v.section, `${v.cardBase}_${t.label}`, t.src);
+    else clearImage(v.loc, v.section, `${v.cardBase}_${t.label}`);
+  });
+
+  pvRefresh(vid);
+  showToast(`${dir===-1?"◀ Shifted left":"Shifted right ▶"} — check tabs look correct`);
+}
+
+function pvToggleReorder(vid){
+  const btn = document.getElementById(`pvreorder-btn-${vid}`);
+  if(btn) btn.style.background = PV_REORDER[vid] ? "var(--accent)" : "";
+  pvRebuildTabs(vid);
+  if(PV_REORDER[vid]) showToast("⇄ Drag tabs to reorder — click REORDER again to save");
+  else showToast("✅ Order saved");
+}
+
+function pvRebuildTabs(vid){
+  const tabsEl = document.getElementById(`pvtabs-${vid}`);
+  const v = VIEWERS[vid];
+  if(!tabsEl || !v) return;
+  if(PV_REORDER[vid]){
+    tabsEl.innerHTML = v.tabs.map((t,i)=>`
+      <button class="product-tab ${i===v.activeIdx?"active":""} ${t.src?"uploaded":""}"
+        draggable="true"
+        ondragstart="tabDragStart('${vid}',${i})"
+        ondragover="tabDragOver(event,'${vid}',${i})"
+        ondrop="tabDrop(event,'${vid}',${i})"
+        ondragend="tabDragEnd('${vid}')"
+        style="cursor:grab;opacity:1;border-style:dashed"
+        id="pvtab-${vid}-${i}">⠿ ${escapeHtml(t.label)}</button>`).join("");
+  } else {
+    tabsEl.innerHTML = v.tabs.map((t,i)=>`
+      <button class="product-tab ${i===v.activeIdx?"active":""} ${t.src?"uploaded":""}"
+        onclick="pvSwitchTab('${vid}',${i})"
+        id="pvtab-${vid}-${i}">${escapeHtml(t.label)}</button>`).join("");
+  }
+}
+
+function tabDragStart(vid, idx){ TAB_DRAG_VID=vid; TAB_DRAG_IDX=idx; document.getElementById(`pvtab-${vid}-${idx}`).style.opacity="0.4"; }
+function tabDragEnd(vid){ TAB_DRAG_VID=null; TAB_DRAG_IDX=null; pvRebuildTabs(vid); }
+function tabDragOver(e, vid, idx){ e.preventDefault(); }
+function tabDrop(e, vid, toIdx){
+  e.preventDefault();
+  if(TAB_DRAG_IDX===null || TAB_DRAG_IDX===toIdx) return;
+  const v = VIEWERS[vid]; if(!v) return;
+  // Swap the two tabs
+  const moved = v.tabs.splice(TAB_DRAG_IDX, 1)[0];
+  v.tabs.splice(toIdx, 0, moved);
+  v.activeIdx = toIdx;
+  pvRebuildTabs(vid);
+  pvRefresh(vid);
+}
+
 function pvRefresh(vid){
   const inner = document.getElementById(`pvinner-${vid}`);
   const info = document.getElementById(`pvinfo-${vid}`);
   if(inner) inner.innerHTML = pvRenderInner(vid);
   if(info) info.innerHTML = pvRenderInfo(vid);
-  // update tabs
-  const v = VIEWERS[vid];
-  if(v) v.tabs.forEach((t,i)=>{
-    const el = document.getElementById(`pvtab-${vid}-${i}`);
-    if(el){
-      el.classList.toggle("active", i===v.activeIdx);
-      el.classList.toggle("uploaded", !!t.src);
-    }
-  });
+  if(!PV_REORDER[vid]) pvRebuildTabs(vid);
 }
 
 function pvSwitchTab(vid, idx){
