@@ -835,10 +835,10 @@ function buildClimatology(loc){
 
 function buildObservations(loc){
   const S="observations";
-  const satVid = safeId(`sat-${loc}`);
+  const satVid = safeId(`sat-SHARED`);
   const satContent = buildProductViewer(satVid, "SATELLITE LOOPS",
     [{label:"VIS 11Z-18Z"},{label:"IR 11Z-18Z"},{label:"WV 11Z-18Z"}],
-    loc, S, "sat", {notePlaceholder:"Discuss satellite features, cloud morphology, convective tops, WV dynamics..."});
+    "SHARED", S, "sat", {notePlaceholder:"Discuss satellite features, cloud morphology, convective tops, WV dynamics..."});
 
   const metVid = safeId(`met-${loc}`);
   const metContent = buildProductViewer(metVid, "METEOGRAM",
@@ -851,12 +851,12 @@ function buildObservations(loc){
     {notePlaceholder:"Discuss METAR/SYNOP analysis, surface pressure patterns, fronts..."});
 
   const skewVid = safeId(`skew-${loc}`);
-  const skewTabs = [
-    "24/17Z","24/18Z","24/19Z","24/20Z","24/21Z","24/22Z","24/23Z",
-    "25/00Z","25/01Z","25/02Z","25/03Z","25/04Z","25/05Z","25/06Z",
-    "25/07Z","25/08Z","25/09Z","25/10Z","25/11Z","25/12Z","25/13Z",
-    "25/14Z","25/15Z","25/16Z"
-  ].map(t=>({label:t}));
+  const skewStart = loc === "TJRV" ? 19 : 17;
+  const skewTabs = [];
+  // Day 24 hours
+  for(let h = skewStart; h <= 23; h++) skewTabs.push({label:`24-${String(h).padStart(2,"0")}Z`});
+  // Day 25 hours
+  for(let h = 0; h <= 16; h++) skewTabs.push({label:`25-${String(h).padStart(2,"0")}Z`});
   const skewContent = buildProductViewer(skewVid, "SKEW-T SOUNDINGS",
     skewTabs, loc, S, "skewt",
     {notePlaceholder:"Discuss thermodynamic profile, instability indices, LCL/LFC, moisture depth, wind shear..."});
@@ -872,7 +872,7 @@ function buildObservations(loc){
     {label:"SECTION: OBS"},
     {label:`CYCLE: ${STATE.currentCycle}`},
   ]) + [
-    buildCollapsible(`${loc}_obs_sat`, "01","SATELLITE LOOPS",         "SAT/GIF",  satContent),
+    buildCollapsible(`shared_obs_sat`, "01","SATELLITE LOOPS ⬡ SHARED",  "SAT/GIF",  satContent),
     buildCollapsible(`${loc}_obs_sfc`, "02","SURFACE OBSERVATIONS",    "METAR",    sfcContent),
     buildCollapsible(`${loc}_obs_skew`,"03","SKEW-T SOUNDINGS",        "SOUNDING", skewContent),
     buildCollapsible(`${loc}_obs_met`, "04","METEOGRAM",               "METGM",    metContent),
@@ -1450,7 +1450,7 @@ async function pvUploadFile(vid, file){
 
   const ext = file.name.split(".").pop().toLowerCase();
   const exactKey = `${v.cardBase}_${tab.label}`;
-  const encodedName = `${v.cardBase}--${tab.label}`.replace(/ /g,"__").replace(/[^a-zA-Z0-9._\-]/g,"");
+  const encodedName = `${v.cardBase}--${tab.label}`.replace(/\//g,"SLASH").replace(/ /g,"__").replace(/[^a-zA-Z0-9._\-]/g,"");
   const safePath = `uploads/${v.loc}/${v.section}/${encodedName}.${ext}`;
   uploadLog(`📤 Trying path: ${safePath}`);
 
@@ -2113,8 +2113,8 @@ async function syncFromSupabase(){
             const nameNoExt = filename.replace(/\.[^.]+$/, "");
             if(!nameNoExt.includes("--")) continue;
             const parts = nameNoExt.split("--");
-            const cardBase = parts[0].replace(/__/g," ");
-            const tabLabel = parts.slice(1).join("--").replace(/__/g," ");
+            const cardBase = parts[0].replace(/__/g," ").replace(/SLASH/g,"/");
+            const tabLabel = parts.slice(1).join("--").replace(/__/g," ").replace(/SLASH/g,"/");
             const exactKey = `${cardBase}_${tabLabel}`;
             const fullPath = `${prefix}${filename}`;
             const publicURL = `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_BUCKET}/${fullPath}`;
