@@ -497,9 +497,13 @@ html,body{height:100%;background:var(--bg-void);color:var(--text-primary);font-f
       <button class="pv-btn danger" onclick="closeFullscreen()">✕ CLOSE</button>
     </div>
   </div>
-  <div class="fullscreen-img-wrap" id="fsImgWrap">
-    <div class="fullscreen-zoom-wrap" id="fsZoomWrap">
-      <img id="fsImg" src="" alt="" style="display:none"/>
+  <div class="fullscreen-img-wrap" id="fsImgWrap"
+    onmousedown="fsPanStart(event)" onmousemove="fsPanMove(event)" onmouseup="fsPanEnd()" onmouseleave="fsPanEnd()"
+    ontouchstart="fsTouchStart(event)" ontouchmove="fsTouchMove(event)" ontouchend="fsTouchEnd(event)"
+    ondblclick="fsDoubleTap(event)"
+    style="cursor:grab;overflow:hidden;display:flex;align-items:center;justify-content:center">
+    <div id="fsZoomWrap" style="transform-origin:center center;will-change:transform">
+      <img id="fsImg" src="" alt="" style="display:none;max-width:90vw;max-height:82vh;user-select:none;pointer-events:none"/>
       <video id="fsVideo" controls loop style="display:none;max-width:90vw;max-height:80vh"></video>
       <iframe id="fsPdf" src="" style="display:none;width:90vw;height:82vh;border:none;border-radius:4px"></iframe>
     </div>
@@ -1807,10 +1811,11 @@ function pvClear(vid){
 }
 
 /* Fullscreen */
-let FS_VID = null, FS_ZOOM = 1;
+let FS_VID = null;
 function pvFullscreen(vid){
   const v = VIEWERS[vid]; if(!v) return;
-  FS_VID = vid; FS_ZOOM = 1;
+  FS_VID = vid;
+  fsResetTransform();
   const tab = v.tabs[v.activeIdx];
   if(!tab||!tab.src){ showToast("No product to view"); return; }
   fsShowTab(vid, v.activeIdx);
@@ -1842,7 +1847,7 @@ function fsShowTab(vid, idx){
   title.textContent = tab ? `${v.section.toUpperCase()} // ${tab.label}` : "—";
   counter.textContent = `${idx+1} / ${v.tabs.length}`;
   if(dlBtn) { dlBtn.onclick = ()=>pvDownload(vid); }
-  FS_ZOOM = 1; fsApplyZoom();
+  FS_PAN.x=0; FS_PAN.y=0; FS_PAN.scale=1; fsApplyTransform();
   // Hide all
   img.style.display="none"; vid2.style.display="none"; pdf.style.display="none";
   if(!tab||!tab.src) return;
@@ -1864,10 +1869,77 @@ function fsNav(dir){
   pvRefresh(FS_VID);
   fsShowTab(FS_VID, idx);
 }
-function fsZoomIn(){ FS_ZOOM = Math.min(FS_ZOOM+0.25, 4); fsApplyZoom(); }
-function fsZoomOut(){ FS_ZOOM = Math.max(FS_ZOOM-0.25, 0.5); fsApplyZoom(); }
-function fsResetZoom(){ FS_ZOOM=1; fsApplyZoom(); }
-function fsApplyZoom(){ const w=document.getElementById("fsZoomWrap"); if(w) w.style.transform=`scale(${FS_ZOOM})`; }
+// Fullscreen pan+zoom state
+let FS_PAN = {x:0, y:0, scale:1, dragging:false, startX:0, startY:0,
+              lastTap:0, pinchDist:0, touches:[]};
+
+function fsApplyTransform(){
+  const w = document.getElementById("fsZoomWrap");
+  const wrap = document.getElementById("fsImgWrap");
+  if(w) w.style.transform = `translate(${FS_PAN.x}px,${FS_PAN.y}px) scale(${FS_PAN.scale})`;
+  if(wrap) wrap.style.cursor = FS_PAN.dragging ? "grabbing" : "grab";
+}
+function fsResetTransform(){ FS_PAN.x=0; FS_PAN.y=0; FS_PAN.scale=1; fsApplyTransform(); }
+
+// Mouse pan
+function fsPanStart(e){
+  if(e.button!==0) return;
+  FS_PAN.dragging=true; FS_PAN.startX=e.clientX-FS_PAN.x; FS_PAN.startY=e.clientY-FS_PAN.y;
+  fsApplyTransform();
+}
+function fsPanMove(e){
+  if(!FS_PAN.dragging) return;
+  FS_PAN.x=e.clientX-FS_PAN.startX; FS_PAN.y=e.clientY-FS_PAN.startY;
+  fsApplyTransform();
+}
+function fsPanEnd(){ FS_PAN.dragging=false; fsApplyTransform(); }
+
+// Double click to zoom in/out
+function fsDoubleTap(e){
+  if(FS_PAN.scale > 1){ fsResetTransform(); }
+  else { FS_PAN.scale=2.5; fsApplyTransform(); }
+}
+
+// Touch — pan + pinch zoom + double tap
+function fsTouchStart(e){
+  FS_PAN.touches = Array.from(e.touches);
+  if(e.touches.length===1){
+    const now = Date.now();
+    if(now - FS_PAN.lastTap < 300){ fsDoubleTap(e); }
+    FS_PAN.lastTap = now;
+    FS_PAN.dragging=true;
+    FS_PAN.startX=e.touches[0].clientX-FS_PAN.x;
+    FS_PAN.startY=e.touches[0].clientY-FS_PAN.y;
+  } else if(e.touches.length===2){
+    FS_PAN.dragging=false;
+    FS_PAN.pinchDist=Math.hypot(
+      e.touches[0].clientX-e.touches[1].clientX,
+      e.touches[0].clientY-e.touches[1].clientY);
+  }
+}
+function fsTouchMove(e){
+  e.preventDefault();
+  if(e.touches.length===1 && FS_PAN.dragging){
+    FS_PAN.x=e.touches[0].clientX-FS_PAN.startX;
+    FS_PAN.y=e.touches[0].clientY-FS_PAN.startY;
+    fsApplyTransform();
+  } else if(e.touches.length===2){
+    const dist=Math.hypot(
+      e.touches[0].clientX-e.touches[1].clientX,
+      e.touches[0].clientY-e.touches[1].clientY);
+    if(FS_PAN.pinchDist){
+      const ratio = dist/FS_PAN.pinchDist;
+      FS_PAN.scale = Math.min(Math.max(FS_PAN.scale*ratio, 0.5), 6);
+      FS_PAN.pinchDist = dist;
+      fsApplyTransform();
+    }
+  }
+}
+function fsTouchEnd(e){ if(e.touches.length===0) FS_PAN.dragging=false; }
+
+function fsZoomIn(){ FS_PAN.scale=Math.min(FS_PAN.scale+0.5,6); fsApplyTransform(); }
+function fsZoomOut(){ FS_PAN.scale=Math.max(FS_PAN.scale-0.5,0.5); fsApplyTransform(); }
+function fsResetZoom(){ fsResetTransform(); }
 
 /* ============================================================
    WIRE GLOBAL FILE INPUT FOR UPLOAD ZONES (legacy support)
